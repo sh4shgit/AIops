@@ -1,0 +1,10 @@
+{"query": "DataNode Connection reset by peer IOException in receiveBlock during replication", "expected_incident_ids": ["INC-1001"]}
+{"query": "Failed to replicate block to datanode socket buffer connection timeout", "expected_incident_ids": ["INC-1001"]}
+{"query": "DataBlockScanner ChecksumException Corrupted block file found on disk", "expected_incident_ids": ["INC-1002"]}
+{"query": "verification failed CRC32 checksum error on storage volume bad sectors", "expected_incident_ids": ["INC-1002"]}
+{"query": "NameNode stop the world pause garbage collection heap memory exhaustion RPC 8020", "expected_incident_ids": ["INC-1003"]}
+{"query": "timed out waiting for datanode response full GC pause 45 seconds", "expected_incident_ids": ["INC-1003"]}
+{"query": "JWT signature verification failed clock skew token expired NTP desync", "expected_incident_ids": ["INC-1004"]}
+{"query": "API gateway HTTP 401 unauthorized clock drift chrony desync", "expected_incident_ids": ["INC-1004"]}
+{"query": "Redis maxmemory OOM command not allowed key eviction storm cascading database saturation", "expected_incident_ids": ["INC-1005"]}
+{"query": "PostgreSQL connection limit exceeded too many clients cache stampede flush", "expected_incident_ids": ["INC-1005"]}
