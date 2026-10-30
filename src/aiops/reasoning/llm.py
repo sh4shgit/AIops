@@ -10,7 +10,13 @@ import json
 import time
 from typing import Any
 
-import anthropic
+try:
+    import anthropic
+    _AnthropicAPIError = anthropic.APIError
+except ImportError:
+    anthropic = None
+    _AnthropicAPIError = type("_AnthropicAPIError", (Exception,), {})
+
 import structlog
 from pydantic import ValidationError
 
@@ -60,9 +66,14 @@ class LLMClient:
         self._model = model or settings.llm_model
         self._max_tokens = max_tokens or settings.llm_max_tokens
         self._temperature = temperature if temperature is not None else settings.llm_temperature
-        self.mock_mode = mock_mode or (not self._api_key) or self._api_key.startswith("sk-ant-...")
+        self.mock_mode = (
+            mock_mode
+            or (anthropic is None)
+            or (not self._api_key)
+            or self._api_key.startswith("sk-ant-...")
+        )
 
-        if not self.mock_mode:
+        if not self.mock_mode and anthropic is not None:
             self._client = anthropic.AsyncAnthropic(api_key=self._api_key)
         else:
             self._client = None
@@ -109,7 +120,7 @@ class LLMClient:
             try:
                 suggestion = await self._call_api(sys_prompt, prompt, attempt)
                 return suggestion
-            except (anthropic.APIError, json.JSONDecodeError, ValidationError) as exc:
+            except (_AnthropicAPIError, json.JSONDecodeError, ValidationError) as exc:
                 LLM_VALIDATION_FAILURES_TOTAL.labels(reason=type(exc).__name__).inc()
                 last_error = exc
                 log.warning(

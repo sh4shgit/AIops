@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import fakeredis.aioredis
 import pytest
 from fastapi.testclient import TestClient
 
@@ -10,13 +9,62 @@ from aiops.api.main import create_app
 from aiops.api.schemas import Incident, IncidentSeverity, IncidentStatus
 
 
+class MockPipeline:
+    def __init__(self, redis_instance: MockRedis):
+        self.redis = redis_instance
+        self.ops = []
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    def sadd(self, key: str, value: str):
+        self.ops.append(("sadd", key, value))
+
+    def xadd(self, stream: str, fields: dict):
+        self.ops.append(("xadd", stream, fields))
+
+    async def execute(self):
+        results = []
+        for op in self.ops:
+            if op[0] == "sadd":
+                _, key, val = op
+                if key not in self.redis.sets:
+                    self.redis.sets[key] = set()
+                if val in self.redis.sets[key]:
+                    results.append(0)  # already member
+                else:
+                    self.redis.sets[key].add(val)
+                    results.append(1)  # added
+            elif op[0] == "xadd":
+                results.append("1000-0")
+        return results
+
+
+class MockRedis:
+    def __init__(self):
+        self.sets = {}
+
+    async def ping(self):
+        return True
+
+    def pipeline(self, transaction: bool = False):
+        return MockPipeline(self)
+
+    async def expire(self, key: str, ttl: int):
+        return True
+
+    async def aclose(self):
+        pass
+
+
 @pytest.fixture
 def test_client() -> TestClient:
-    """Create a FastAPI TestClient with a simulated fake Redis backend."""
+    """Create a FastAPI TestClient with a simulated mock Redis backend."""
     app = create_app()
-    # Mock Redis with in-memory fakeredis
-    fake_redis = fakeredis.aioredis.FakeRedis()
-    app.state.redis = fake_redis
+    app.state.redis = MockRedis()
 
     with TestClient(app) as client:
         yield client

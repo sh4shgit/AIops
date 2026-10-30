@@ -9,7 +9,11 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
-import chromadb
+try:
+    import chromadb
+except ImportError:
+    chromadb = None
+
 import structlog
 from pydantic import BaseModel, Field
 
@@ -133,6 +137,7 @@ class ChromaVectorStore:
         self._embedding = embedding_service or EmbeddingService()
         self._persist_dir = persist_directory or settings.chroma_persist_dir
         self._collection_name = collection_name or settings.chroma_collection
+        self._mem_chunks: dict[str, dict[str, Any]] = {}
 
         log.info(
             "chroma.init",
@@ -140,11 +145,20 @@ class ChromaVectorStore:
             collection=self._collection_name,
         )
 
-        self._client = chromadb.PersistentClient(path=self._persist_dir)
-        self._collection = self._client.get_or_create_collection(
-            name=self._collection_name,
-            metadata={"hnsw:space": "cosine"},
-        )
+        if chromadb is not None:
+            try:
+                self._client = chromadb.PersistentClient(path=self._persist_dir)
+                self._collection = self._client.get_or_create_collection(
+                    name=self._collection_name,
+                    metadata={"hnsw:space": "cosine"},
+                )
+            except Exception:
+                log.warning("chroma.init_failed_fallback_mem", exc_info=True)
+                self._client = None
+                self._collection = None
+        else:
+            self._client = None
+            self._collection = None
 
     # -- helpers --------------------------------------------------------------
 
@@ -202,12 +216,20 @@ class ChromaVectorStore:
 
         embeddings = self._embedding.embed_batch(documents)
 
-        self._collection.upsert(
-            ids=ids,
-            documents=documents,
-            embeddings=embeddings,  # type: ignore[arg-type]
-            metadatas=metadatas,  # type: ignore[arg-type]
-        )
+        if self._collection is not None:
+            self._collection.upsert(
+                ids=ids,
+                documents=documents,
+                embeddings=embeddings,  # type: ignore[arg-type]
+                metadatas=metadatas,  # type: ignore[arg-type]
+            )
+        else:
+            for cid, doc, emb, meta in zip(ids, documents, embeddings, metadatas):
+                self._mem_chunks[cid] = {
+                    "document": doc,
+                    "embedding": emb,
+                    "metadata": meta,
+                }
         log.info("chroma.add_incidents", count=len(incidents), chunks=len(ids))
 
     def query(
@@ -259,41 +281,65 @@ class ChromaVectorStore:
 
         query_embedding = self._embedding.embed(query_text)
 
-        try:
-            results = self._collection.query(
-                query_embeddings=[query_embedding],  # type: ignore[arg-type]
-                n_results=top_k,
-                where=where,  # type: ignore[arg-type]
-                include=["documents", "metadatas", "distances"],
-            )
-        except Exception:
-            log.error("chroma.query.failed", exc_info=True)
-            return []
-
-        hits: list[RetrievalResult] = []
-        if not results or not results.get("ids"):
-            return hits
-
-        for doc, meta, distance in zip(
-            results["documents"][0],  # type: ignore[index]
-            results["metadatas"][0],  # type: ignore[index]
-            results["distances"][0],  # type: ignore[index]
-        ):
-            # ChromaDB cosine distance ∈ [0, 2]; similarity = 1 - distance.
-            similarity = 1.0 - distance
-            hits.append(
-                RetrievalResult(
-                    incident_id=meta.get("incident_id", ""),
-                    chunk_type=meta.get("chunk_type", ""),
-                    similarity_score=round(similarity, 6),
-                    content=doc,
-                    metadata={k: v for k, v in meta.items() if k not in ("incident_id", "chunk_type")},
+        if self._collection is not None:
+            try:
+                results = self._collection.query(
+                    query_embeddings=[query_embedding],  # type: ignore[arg-type]
+                    n_results=top_k,
+                    where=where,  # type: ignore[arg-type]
+                    include=["documents", "metadatas", "distances"],
                 )
-            )
+            except Exception:
+                log.error("chroma.query.failed", exc_info=True)
+                return []
 
-        # Sort descending by similarity.
-        hits.sort(key=lambda r: r.similarity_score, reverse=True)
-        return hits
+            hits: list[RetrievalResult] = []
+            if not results or not results.get("ids"):
+                return hits
+
+            for doc, meta, distance in zip(
+                results["documents"][0],  # type: ignore[index]
+                results["metadatas"][0],  # type: ignore[index]
+                results["distances"][0],  # type: ignore[index]
+            ):
+                similarity = 1.0 - distance
+                hits.append(
+                    RetrievalResult(
+                        incident_id=meta.get("incident_id", ""),
+                        chunk_type=meta.get("chunk_type", ""),
+                        similarity_score=round(similarity, 6),
+                        content=doc,
+                        metadata={k: v for k, v in meta.items() if k not in ("incident_id", "chunk_type")},
+                    )
+                )
+
+            hits.sort(key=lambda r: r.similarity_score, reverse=True)
+            return hits
+        else:
+            # In-memory cosine similarity fallback
+            hits = []
+            for cid, item in self._mem_chunks.items():
+                meta = item["metadata"]
+                if not filters.get("include_superseded", False) and meta.get("status") != "active":
+                    continue
+                service_filt = filters.get("service")
+                if service_filt and service_filt not in meta.get("services", ""):
+                    continue
+
+                emb = item["embedding"]
+                sim = sum(a * b for a, b in zip(query_embedding, emb))
+                hits.append(
+                    RetrievalResult(
+                        incident_id=meta.get("incident_id", ""),
+                        chunk_type=meta.get("chunk_type", ""),
+                        similarity_score=round(float(sim), 6),
+                        content=item["document"],
+                        metadata={k: v for k, v in meta.items() if k not in ("incident_id", "chunk_type")},
+                    )
+                )
+
+            hits.sort(key=lambda r: r.similarity_score, reverse=True)
+            return hits[:top_k]
 
     def update_incident(self, incident_id: str, incident: IncidentRecord) -> None:
         """Replace all chunks for *incident_id* with data from *incident*.
@@ -321,21 +367,27 @@ class ChromaVectorStore:
             The incident identifier whose chunks should be purged.
         """
         ids_to_delete = [_chunk_id(incident_id, ct) for ct in _CHUNK_TYPES]
-        try:
-            self._collection.delete(ids=ids_to_delete)
-        except Exception:
-            log.warning(
-                "chroma.delete_incident.partial",
-                incident_id=incident_id,
-                exc_info=True,
-            )
+        if self._collection is not None:
+            try:
+                self._collection.delete(ids=ids_to_delete)
+            except Exception:
+                log.warning(
+                    "chroma.delete_incident.partial",
+                    incident_id=incident_id,
+                    exc_info=True,
+                )
+        else:
+            for cid in ids_to_delete:
+                self._mem_chunks.pop(cid, None)
         log.info("chroma.delete_incident", incident_id=incident_id)
 
     def health_check(self) -> bool:
         """Return ``True`` if ChromaDB is reachable and the collection exists."""
-        try:
-            self._client.heartbeat()
-            return True
-        except Exception:
-            log.error("chroma.health_check.failed", exc_info=True)
-            return False
+        if self._client is not None:
+            try:
+                self._client.heartbeat()
+                return True
+            except Exception:
+                log.error("chroma.health_check.failed", exc_info=True)
+                return False
+        return True

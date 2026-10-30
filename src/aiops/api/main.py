@@ -106,21 +106,31 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
 
     # --- Redis ---
-    redis_client = aioredis.from_url(
-        settings.redis_url,
-        decode_responses=False,
-    )
-    app.state.redis = redis_client
-    logger.info("redis_connected", url=settings.redis_url)
+    existing_redis = getattr(app.state, "redis", None)
+    own_redis = False
+    if existing_redis is None:
+        redis_client = aioredis.from_url(
+            settings.redis_url,
+            decode_responses=False,
+            socket_timeout=1.0,
+            socket_connect_timeout=1.0,
+        )
+        app.state.redis = redis_client
+        own_redis = True
+        logger.info("redis_connected", url=settings.redis_url)
+    else:
+        redis_client = existing_redis
 
     # --- Incident store ---
-    app.state.incident_store = InMemoryIncidentStore()
+    if not hasattr(app.state, "incident_store"):
+        app.state.incident_store = InMemoryIncidentStore()
 
     try:
         yield
     finally:
-        await redis_client.aclose()
-        logger.info("redis_disconnected")
+        if own_redis and redis_client is not None:
+            await redis_client.aclose()
+            logger.info("redis_disconnected")
 
 
 # ---------------------------------------------------------------------------

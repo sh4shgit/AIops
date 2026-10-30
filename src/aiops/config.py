@@ -26,7 +26,7 @@ except ImportError:
         def __init__(self, **kwargs):
             # Read from os.environ as fallback if pydantic-settings is not installed
             env_vals = {}
-            for field_name, field_info in self.model_fields.items():
+            for field_name, field_info in self.__class__.model_fields.items():
                 val = os.getenv(field_name.upper()) or os.getenv(field_name.lower())
                 if val is not None:
                     if isinstance(field_info.default, SecretStr):

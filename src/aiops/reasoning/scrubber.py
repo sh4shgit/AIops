@@ -36,21 +36,13 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
         re.compile(r"[Bb]earer\s+[A-Za-z0-9\-._~+/]+=*", re.ASCII),
         "[BEARER_TOKEN_REDACTED]",
     ),
-    # OpenAI / Slack / generic API keys
+    # OpenAI / Anthropic / Slack / generic API keys
     (
-        re.compile(r"sk-[A-Za-z0-9]{20,}"),
+        re.compile(r"sk-[A-Za-z0-9_-]{10,}"),
         "[API_KEY_REDACTED]",
     ),
     (
-        re.compile(r"xoxb-[A-Za-z0-9\-]{20,}"),
-        "[API_KEY_REDACTED]",
-    ),
-    (
-        re.compile(r"xoxp-[A-Za-z0-9\-]{20,}"),
-        "[API_KEY_REDACTED]",
-    ),
-    (
-        re.compile(r"xoxa-[A-Za-z0-9\-]{20,}"),
+        re.compile(r"xox[bpa]-[A-Za-z0-9_-]{8,}"),
         "[API_KEY_REDACTED]",
     ),
     # Passwords embedded in URLs  (scheme://user:password@host)

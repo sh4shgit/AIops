@@ -5,6 +5,7 @@ Reports connectivity to Redis and the configured vector store.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 
 import structlog
@@ -35,10 +36,12 @@ async def health_check(request: Request) -> HealthResponse:
 
 
 async def _check_redis(request: Request) -> bool:
-    """Attempt a Redis PING."""
+    """Attempt a Redis PING with timeout."""
     try:
-        redis_client = request.app.state.redis
-        pong = await redis_client.ping()
+        redis_client = getattr(request.app.state, "redis", None)
+        if redis_client is None:
+            return False
+        pong = await asyncio.wait_for(redis_client.ping(), timeout=1.0)
         return bool(pong)
     except Exception:
         logger.warning("health_redis_unreachable", exc_info=True)

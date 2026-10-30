@@ -39,25 +39,47 @@ class EmbeddingService:
 
     # -- internal helpers -----------------------------------------------------
 
-    def _load_model(self) -> SentenceTransformer:
-        """Load the model in a thread-safe manner, returning the instance."""
+    def _load_model(self) -> Any:
+        """Load the model in a thread-safe manner, returning the instance or fallback."""
         if self._model is None:
             with self._lock:
-                # Double-check after acquiring the lock.
                 if self._model is None:
-                    from sentence_transformers import SentenceTransformer
+                    try:
+                        from sentence_transformers import SentenceTransformer
 
-                    log.info(
-                        "embedding_model.loading",
-                        model_name=self._model_name,
-                    )
-                    self._model = SentenceTransformer(self._model_name)
-                    log.info(
-                        "embedding_model.loaded",
-                        model_name=self._model_name,
-                        dimension=self._model.get_sentence_embedding_dimension(),
-                    )
-        return self._model  # type: ignore[return-value]
+                        log.info(
+                            "embedding_model.loading",
+                            model_name=self._model_name,
+                        )
+                        self._model = SentenceTransformer(self._model_name)
+                        log.info(
+                            "embedding_model.loaded",
+                            model_name=self._model_name,
+                            dimension=self._model.get_sentence_embedding_dimension(),
+                        )
+                    except (ImportError, Exception):
+                        log.info("embedding_model.fallback_hash", model_name="hash-384")
+                        self._model = "fallback"
+        return self._model
+
+    def _hash_embed(self, text: str) -> list[float]:
+        """Deterministic 384-dim normalized embedding when sentence-transformers is absent."""
+        import hashlib
+        import math
+
+        words = text.lower().split()
+        dim = 384
+        vec = [0.0] * dim
+        for w in words:
+            h = int(hashlib.md5(w.encode("utf-8")).hexdigest(), 16)
+            idx = h % dim
+            sign = 1.0 if ((h >> 9) & 1) else -1.0
+            vec[idx] += sign
+
+        norm = math.sqrt(sum(x * x for x in vec))
+        if norm > 0:
+            return [x / norm for x in vec]
+        return vec
 
     # -- public API -----------------------------------------------------------
 
@@ -65,44 +87,27 @@ class EmbeddingService:
     def dimension(self) -> int:
         """Dimensionality of the embedding vectors produced by the model."""
         model = self._load_model()
+        if model == "fallback":
+            return 384
         dim = model.get_sentence_embedding_dimension()
         if dim is None:  # pragma: no cover – defensive
             raise RuntimeError("Model did not report an embedding dimension.")
         return int(dim)
 
     def embed(self, text: str) -> list[float]:
-        """Embed a single text string and return its vector.
-
-        Parameters
-        ----------
-        text:
-            The input text to embed.
-
-        Returns
-        -------
-        list[float]
-            Dense vector representation.
-        """
+        """Embed a single text string and return its vector."""
         model = self._load_model()
+        if model == "fallback":
+            return self._hash_embed(text)
         vector = model.encode(text, show_progress_bar=False)
         return vector.tolist()  # type: ignore[union-attr]
 
     def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        """Embed multiple texts in a single call.
-
-        Parameters
-        ----------
-        texts:
-            List of text strings to embed.
-
-        Returns
-        -------
-        list[list[float]]
-            A list of dense vectors, one per input text.
-        """
+        """Embed multiple texts in a single call."""
         if not texts:
             return []
-
         model = self._load_model()
+        if model == "fallback":
+            return [self._hash_embed(t) for t in texts]
         vectors = model.encode(texts, show_progress_bar=False, batch_size=64)
         return [v.tolist() for v in vectors]  # type: ignore[union-attr]
