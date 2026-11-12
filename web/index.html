@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101a20">
+  <title>Logscope · HDFS analysis</title>
+  <style>
+    :root{color-scheme:light;--ink:#14272b;--muted:#718286;--line:#e2e9e6;--paper:#f5f7f4;--green:#19745e;--lime:#d9ec9f;--red:#c95145;--amber:#b37b24}
+    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}button,input,textarea{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.45}a{color:inherit}svg{display:block}
+    .layout{min-height:100vh;display:grid;grid-template-columns:224px minmax(0,1fr)}.sidebar{background:#122328;color:#d9e4df;padding:28px 20px;display:flex;flex-direction:column;gap:38px}.brand{display:flex;align-items:center;gap:10px;font-size:19px;font-weight:750;letter-spacing:-.7px}.brand-mark{width:34px;height:34px;background:#cce794;color:#193a32;border-radius:10px;display:grid;place-items:center}.brand small{font-weight:400;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8ea59e;display:block;margin-top:-4px}.nav-label,.eyebrow{font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:750}.nav-label{color:#78908a;margin:0 10px 12px}.nav-item{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:8px;background:#263b3c;color:#e9f3de;font-weight:650}.nav-item svg{color:#cce794}.side-bottom{margin-top:auto;border-top:1px solid #314441;padding:18px 10px 0;color:#96aaa5;font-size:12px}.side-bottom strong{color:#dbe7df;display:block;margin-bottom:5px}.side-bottom a{color:#cce794;text-decoration:none}
+    .main{min-width:0}.topbar{height:68px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 36px}.breadcrumbs{font-size:12px;color:#8b9997}.breadcrumbs strong{color:#334a48}.top-right{display:flex;align-items:center;gap:13px;font-size:12px;color:#6a7e79}.status-dot{width:7px;height:7px;background:#6fb27b;border-radius:50%;display:inline-block;margin-right:6px}.avatar{width:31px;height:31px;background:#e6eee5;color:#456c52;border-radius:50%;display:grid;place-items:center;font-weight:700}.content{max-width:1500px;margin:auto;padding:35px 36px 70px}.title-row{display:flex;justify-content:space-between;align-items:end;gap:20px;margin-bottom:25px}.eyebrow{color:var(--green);margin-bottom:7px}.title-row h1{font-size:30px;letter-spacing:-1.25px;line-height:1.1;margin:0 0 8px}.title-row p{margin:0;color:var(--muted);font-size:13px}.date-chip,.tag{border:1px solid var(--line);background:white;border-radius:7px;padding:7px 11px;color:#60736e;font-size:11px;white-space:nowrap}
+    .intro{background:#dfeec7;border:1px solid #d0e1b3;border-radius:12px;padding:18px 21px;display:flex;align-items:center;gap:15px;margin-bottom:22px}.intro-icon{width:39px;height:39px;flex:none;display:grid;place-items:center;background:#c7dfaa;border-radius:10px;color:#285d43}.intro strong{display:block;font-size:13px}.intro p{margin:3px 0 0;color:#55705b;font-size:12px}.intro a{margin-left:auto;color:#3d684c;font-weight:700;font-size:12px;white-space:nowrap}
+    .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}.metric,.panel{background:#fff;border:1px solid var(--line);border-radius:11px;box-shadow:0 2px 5px #263d2b08}.metric{padding:17px 18px 15px}.metric-top{display:flex;justify-content:space-between;align-items:center;color:#748680;font-size:11px;font-weight:650}.metric-icon{width:29px;height:29px;border-radius:8px;background:#f1f6ef;display:grid;place-items:center;color:#71997b}.metric-value{font-size:27px;font-weight:720;letter-spacing:-1px;line-height:1.2;margin:10px 0 3px}.metric-note{font-size:11px;color:#9aa9a3}.metric.high .metric-value{color:var(--red)}.metric.low .metric-value{color:var(--amber)}
+    .columns{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(300px,.85fr);gap:18px;align-items:start}.panel{overflow:hidden}.panel-head{padding:20px 21px 16px;display:flex;justify-content:space-between;gap:15px;align-items:start}.panel-head h2{font-size:15px;letter-spacing:-.25px;margin:0 0 3px}.panel-head p{color:var(--muted);font-size:11px;margin:0}.panel-body{padding:0 21px 20px}.source-pill{display:inline-flex;align-items:center;gap:6px;border:1px solid #d8e8d8;border-radius:99px;background:#f3f9f2;padding:4px 9px;font-weight:700;font-size:10px;color:#468161}.source-pill:before{content:"";width:6px;height:6px;background:#59a469;border-radius:50%}.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:13px}.button{border:1px solid #dfe7e2;border-radius:7px;background:#fff;color:#526660;padding:8px 11px;font-size:11px;font-weight:700}.button:hover{background:#f6faf6}.button.primary{background:#1c6b56;border-color:#1c6b56;color:#fff}.button.primary:hover{background:#155541}.button.secondary{background:#f7faf6}.toolbar .spacer{flex:1}.sample-range{color:#8d9d96;font-size:11px}.logbox{background:#142329;border-radius:8px;min-height:273px;position:relative;overflow:hidden}.log-head{height:37px;border-bottom:1px solid #344449;display:flex;align-items:center;justify-content:space-between;padding:0 13px;color:#90a8a1;font-size:10px}.log-head span:first-child{color:#d0ded7;font-weight:700}.log-text{width:100%;height:237px;display:block;background:transparent;border:0;resize:vertical;outline:none;color:#c2d4cc;padding:12px 13px;font:11px/1.75 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre;overflow:auto}.panel-foot{margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:10px}.hint{font-size:11px;color:#8b9a94}.error{margin-top:12px;color:#a53b32;font-size:12px}.hidden{display:none!important}
+    .breakdown{display:flex;align-items:center;gap:22px;padding:8px 0 19px}.donut{width:114px;height:114px;border-radius:50%;background:conic-gradient(#77ad8b 0 100%);display:grid;place-items:center;flex:none}.donut:after{content:attr(data-total);width:77px;height:77px;border-radius:50%;background:white;display:grid;place-items:center;font-size:22px;font-weight:750;letter-spacing:-1px}.legend{flex:1}.legend-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;color:#6d8179;font-size:11px}.legend-row strong{color:#30483f}.key{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:8px}.insight{border-top:1px solid var(--line);padding-top:15px}.insight-title{display:flex;gap:7px;align-items:center;color:#4f7060;font-size:11px;font-weight:750}.insight p{font-size:11px;line-height:1.6;color:#8a9993;margin:6px 0 0}
+    .results{margin-top:18px}.results .panel-head{align-items:center}.table-wrap{overflow:auto}.result-table{width:100%;border-collapse:collapse;text-align:left}.result-table th{background:#fafcf9;color:#8b9b94;font-size:10px;text-transform:uppercase;letter-spacing:.08em;padding:11px 21px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);white-space:nowrap}.result-table td{padding:13px 21px;border-bottom:1px solid #eef2ee;font-size:11px;vertical-align:top}.result-table tr:last-child td{border:0}.mono{font:11px ui-monospace,SFMono-Regular,Consolas,monospace}.truncate{max-width:560px;min-width:180px;overflow-wrap:anywhere;color:#52665f}.badge{display:inline-flex;padding:3px 7px;border-radius:5px;font-size:9px;letter-spacing:.04em;font-weight:800;background:#edf6eb;color:#4d8663}.badge.high{background:#fbece9;color:#b94d40}.badge.low{background:#fbf2df;color:#ae7c27}.empty{text-align:center;color:#9aa9a3;padding:35px;font-size:12px}.result-meta{padding:12px 21px;color:#99a8a1;font-size:11px;border-top:1px solid var(--line)}.notice{font-size:11px;color:#9aa9a3;margin-top:20px}
+    @media(max-width:1050px){.sidebar{width:68px;padding:24px 15px}.layout{grid-template-columns:68px minmax(0,1fr)}.brand .brand-text,.nav-label,.nav-item span,.side-bottom{display:none}.nav-item{padding:11px;justify-content:center}.columns{grid-template-columns:1fr}.breakdown{justify-content:center}.legend{max-width:220px}}
+    @media(max-width:660px){.layout{display:block}.sidebar{width:auto;padding:12px 18px;display:block}.brand .brand-text{display:block}.sidebar nav{display:none}.topbar{height:52px;padding:0 18px}.content{padding:25px 16px 45px}.title-row{align-items:start}.title-row h1{font-size:25px}.date-chip{display:none}.intro a{display:none}.metrics{grid-template-columns:repeat(2,1fr);gap:9px}.metric{padding:13px}.panel-head,.panel-body{padding-left:15px;padding-right:15px}.result-table td,.result-table th{padding-left:15px;padding-right:15px}.top-right{font-size:0}.avatar{font-size:11px}}
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg></div><div class="brand-text">logscope<small>Operations intelligence</small></div></div>
+    <nav><div class="nav-label">Workspace</div><div class="nav-item"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Log analysis</span></div></nav>
+    <div class="side-bottom"><strong>Built for investigation</strong>Explore real HDFS logs, one batch at a time.<br><br><a href="https://github.com/logpai/loghub/tree/master/HDFS" target="_blank" rel="noopener noreferrer">About the dataset ↗</a></div>
+  </aside>
+  <main class="main">
+    <div class="topbar"><div class="breadcrumbs">Workspace &nbsp;/&nbsp; <strong>Log analysis</strong></div><div class="top-right"><span><i class="status-dot"></i>Local workspace</span><div class="avatar">OP</div></div></div>
+    <div class="content">
+      <div class="title-row"><div><div class="eyebrow">OPERATIONS / ANALYSIS</div><h1>Log analysis</h1><p>Explore patterns and investigate signals across your HDFS logs.</p></div><div class="date-chip">◷ &nbsp; Dataset: HDFS v1 sample</div></div>
+      <div class="intro"><div class="intro-icon"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 3.5 7v5c0 5 3.5 7.5 8.5 9 5-1.5 8.5-4 8.5-9V7L12 3Z"/><path d="m8 12 2.5 2.5L16 9"/></svg></div><div><strong>Start with real HDFS data</strong><p>A 2,000-line sample from LogHub is ready to explore. Select a batch or bring your own logs.</p></div><a href="https://github.com/logpai/loghub/blob/master/HDFS/HDFS_2k.log" target="_blank" rel="noopener noreferrer">View source ↗</a></div>
+      <div class="metrics" aria-label="Analysis summary">
+        <div class="metric"><div class="metric-top">LOGS ANALYZED <span class="metric-icon">▤</span></div><div class="metric-value" id="m-logs">—</div><div class="metric-note">In the current batch</div></div>
+        <div class="metric"><div class="metric-top">LOG TEMPLATES <span class="metric-icon">▦</span></div><div class="metric-value" id="m-templates">—</div><div class="metric-note">Patterns identified</div></div>
+        <div class="metric high"><div class="metric-top">HIGH SIGNALS <span class="metric-icon">↗</span></div><div class="metric-value" id="m-high">—</div><div class="metric-note">Windows to investigate</div></div>
+        <div class="metric low"><div class="metric-top">LOW SIGNALS <span class="metric-icon">◷</span></div><div class="metric-value" id="m-low">—</div><div class="metric-note">Windows to review</div></div>
+      </div>
+      <div class="columns">
+        <section class="panel"><div class="panel-head"><div><h2>Log explorer</h2><p>Load a sample, paste log lines, or upload a file.</p></div><span class="source-pill" id="source-pill">LogHub HDFS</span></div>
+          <div class="panel-body"><div class="toolbar"><button class="button secondary" id="load">Load HDFS sample</button><button class="button" id="prev" aria-label="Previous sample batch">←</button><button class="button" id="next" aria-label="Next sample batch">→</button><span class="sample-range" id="range">Loading sample…</span><span class="spacer"></span><button class="button" id="upload">↑ &nbsp; Upload file</button><input id="file" type="file" accept=".log,.txt,text/plain" class="hidden"></div>
+            <div class="logbox"><div class="log-head"><span>INPUT LOGS</span><span id="line-count">0 lines</span></div><textarea id="logs" class="log-text" spellcheck="false" aria-label="Log lines" placeholder="Paste HDFS or application logs here…"></textarea></div>
+            <div class="panel-foot"><span class="hint">Up to 500 non-empty lines per analysis</span><button class="button primary" id="analyze">Analyze logs &nbsp; →</button></div><div id="error" class="error hidden" role="alert"></div>
+          </div></section>
+        <section class="panel"><div class="panel-head"><div><h2>Signal overview</h2><p>Severity distribution across log windows.</p></div><span class="tag">Current batch</span></div><div class="panel-body">
+          <div class="breakdown"><div class="donut" id="donut" data-total="—" aria-label="Analyzed windows"></div><div class="legend"><div class="legend-row"><span><i class="key" style="background:#c95b4d"></i>High signal</span><strong id="l-high">—</strong></div><div class="legend-row"><span><i class="key" style="background:#dfb660"></i>Low signal</span><strong id="l-low">—</strong></div><div class="legend-row"><span><i class="key" style="background:#77ad8b"></i>Normal</span><strong id="l-normal">—</strong></div></div></div>
+          <div class="insight"><div class="insight-title">✳ &nbsp; How scoring works</div><p>Windows are grouped by HDFS block ID. A severity heuristic uses the share of ERROR and WARN lines. These signals are not model predictions or confirmed incidents.</p></div>
+        </div></section>
+      </div>
+      <section class="panel results"><div class="panel-head"><div><h2>Window results</h2><p>Review the strongest signals and their common templates.</p></div><span class="tag" id="result-count">Awaiting analysis</span></div>
+        <div class="table-wrap"><table class="result-table"><thead><tr><th>Window / block</th><th>Signal</th><th>Score</th><th>Common pattern</th></tr></thead><tbody id="results"><tr><td colspan="4" class="empty">Run an analysis to see results here.</td></tr></tbody></table></div><div class="result-meta" id="result-meta">Results are based on the current input only.</div>
+      </section>
+      <div class="notice">LogHub HDFS sample · Research data from a real HDFS system · No automated actions are taken</div>
+    </div>
+  </main>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+let offset = 0, total = 0, sampleEntries = null, sampleText = '';
+const limit = 200;
+const html = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function setError(message) { $('error').textContent = message; $('error').classList.toggle('hidden', !message); }
+function lines() { return $('logs').value.split(/\r?\n/).map(x => x.trim()).filter(Boolean); }
+function updateCount() { const n=lines().length; $('line-count').textContent = n + (n===1?' line':' lines'); }
+function clearResults() {
+  ['m-logs','m-templates','m-high','m-low','l-high','l-low','l-normal'].forEach(id => $(id).textContent='—');
+  $('donut').dataset.total='—'; $('donut').style.background='#77ad8b';
+  $('result-count').textContent='Awaiting analysis';
+  $('results').innerHTML='<tr><td colspan="4" class="empty">Run an analysis to see results here.</td></tr>';
+  $('result-meta').textContent='Results are based on the current input only.';
+}
+function parseLine(line) {
+  const m=line.match(/^(\d{6})\s+(\d{6})\s+\d+\s+(TRACE|DEBUG|INFO|WARN|WARNING|ERROR|FATAL)\s+(.*)$/);
+  if (m) return {timestamp: '20'+m[1].slice(0,2)+'-'+m[1].slice(2,4)+'-'+m[1].slice(4,6)+'T'+m[2].slice(0,2)+':'+m[2].slice(2,4)+':'+m[2].slice(4,6),service:'hdfs',level:m[3],message:m[4]};
+  const severity=line.match(/\b(FATAL|CRITICAL|ERROR|WARNING|WARN|INFO|DEBUG|TRACE)\b/i);
+  return {timestamp:'',service:'hdfs',level:severity?severity[1].toUpperCase():'INFO',message:line};
+}
+async function loadSample(at) {
+  setError(''); $('load').disabled=true;
+  try {
+    const res=await fetch('/datasets/hdfs?offset='+at+'&limit='+limit);
+    if (!res.ok) throw new Error('Could not load the HDFS sample (HTTP '+res.status+').');
+    const data=await res.json(); offset=data.offset; total=data.total; sampleEntries=data.logs;
+    sampleText=data.logs.map(x => x.raw).join('\n');
+    $('logs').value=sampleText; $('source-pill').textContent='LogHub HDFS'; $('range').textContent=(offset+1)+'–'+Math.min(offset+data.logs.length,total)+' of '+total.toLocaleString(); $('prev').disabled=offset===0; $('next').disabled=offset+limit>=total; updateCount(); clearResults();
+  } catch(e) {setError(e.message);$('range').textContent='Sample unavailable';}
+  finally {$('load').disabled=false;}
+}
+function render(data) {
+  const s=data.summary; $('m-logs').textContent=s.total_logs.toLocaleString(); $('m-templates').textContent=s.unique_templates.toLocaleString(); $('m-high').textContent=s.anomalies_high.toLocaleString(); $('m-low').textContent=s.anomalies_low.toLocaleString();
+  $('l-high').textContent=s.anomalies_high; $('l-low').textContent=s.anomalies_low; $('l-normal').textContent=s.normal_windows; $('donut').dataset.total=s.windows_analyzed;
+  const n=s.windows_analyzed||1, a=s.anomalies_high/n*100, b=(s.anomalies_high+s.anomalies_low)/n*100;
+  $('donut').style.background='conic-gradient(#c95b4d 0 '+a+'%, #dfb660 '+a+'% '+b+'%, #77ad8b '+b+'% 100%)';
+  const rows=[...data.detections].sort((a,b)=>a.anomaly_score-b.anomaly_score); const shown=rows.slice(0,50);
+  $('results').innerHTML=shown.length?shown.map(d=>'<tr><td class="mono">'+html(d.window_id.replace('session-',''))+'</td><td><span class="badge '+html(d.band.toLowerCase())+'">'+html(d.band)+'</span></td><td class="mono">'+Number(d.anomaly_score).toFixed(3)+'</td><td class="truncate">'+html(d.top_templates[0]||'—')+'</td></tr>').join(''):'<tr><td colspan="4" class="empty">No windows found.</td></tr>';
+  $('result-count').textContent=s.windows_analyzed+' windows'; $('result-meta').textContent='Showing '+shown.length+' of '+rows.length+' windows, ordered by signal. Scoring: severity heuristic.';
+}
+$('logs').addEventListener('input',()=>{updateCount();clearResults();$('source-pill').textContent=$('logs').value===sampleText?'LogHub HDFS':'Custom input';});
+$('load').addEventListener('click',()=>loadSample(0)); $('prev').addEventListener('click',()=>loadSample(Math.max(0,offset-limit))); $('next').addEventListener('click',()=>loadSample(offset+limit));
+$('upload').addEventListener('click',()=>$('file').click());
+$('file').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;if(file.size>2*1024*1024){setError('Please choose a file smaller than 2 MB.');return;}try{$('logs').value=await file.text();$('source-pill').textContent='Uploaded file';updateCount();clearResults();setError('');}catch{setError('Could not read this file.');}e.target.value='';});
+$('analyze').addEventListener('click',async()=>{setError('');const input=lines();if(!input.length){setError('Add at least one log line to analyze.');return}if(input.length>500){setError('Please limit the batch to 500 non-empty lines.');return}
+  const button=$('analyze'), submitted=$('logs').value;button.disabled=true;button.textContent='Analyzing…';
+  try{const logs=submitted===sampleText&&sampleEntries?sampleEntries:input.map(parseLine);const response=await fetch('/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({logs})});if(!response.ok){let info;try{info=await response.json()}catch{}throw new Error(typeof info?.detail==='string'?info.detail:'Analysis failed (HTTP '+response.status+').')}const result=await response.json();if($('logs').value===submitted)render(result);}
+  catch(e){setError(e.message||'Could not reach the analysis service.');}finally{button.disabled=false;button.textContent='Analyze logs  →';}
+});
+loadSample(0);
+</script>
+</body>
+</html>

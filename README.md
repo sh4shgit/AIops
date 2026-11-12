@@ -83,6 +83,19 @@ Evaluated across labeled operational incident queries in `eval/queries.jsonl`.
 
 ## Quickstart
 
+### HDFS dashboard
+
+Install the project in a Python 3.11+ environment (`pip install -e ".[dev]"`),
+then run `python run_server.py` and open `http://localhost:8000/`. The dashboard
+loads batches from the bundled [LogHub HDFS 2k sample](data/samples/README.md),
+or accepts pasted and uploaded logs. `GET /datasets/hdfs` serves the sample in
+bounded batches. It is historical research data, not a live HDFS connection.
+
+The dashboard groups logs by block ID and applies a severity-ratio heuristic;
+its scores are not trained model predictions or ground-truth incident labels.
+This interface does not invoke Claude, retrieve incidents, or execute actions.
+Redis and ChromaDB are not needed for this dashboard analysis path.
+
 ### 1. Clone & Configure
 ```bash
 git clone https://github.com/aiops/aiops-assistant.git

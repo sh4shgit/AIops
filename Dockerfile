@@ -14,16 +14,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy dependency definition
-COPY pyproject.toml /app/
+COPY pyproject.toml README.md /app/
+COPY src /app/src
 
 # Install python dependencies
 RUN pip install --no-cache-dir --upgrade pip setuptools hatchling && \
     pip install --no-cache-dir .
 
 # Copy application source and deploy artifacts
-COPY src /app/src
 COPY data /app/data
 COPY deploy /app/deploy
+COPY web /app/web
 
 # Expose API and Prometheus port
 EXPOSE 8000

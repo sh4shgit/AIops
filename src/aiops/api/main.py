@@ -7,6 +7,7 @@ Call :func:`create_app` to get a fully-configured ``FastAPI`` instance with:
 * API-key authentication dependency on mutating endpoints
 * Sliding-window rate-limiting middleware for ``POST /logs``
 * All route routers included
+* Static web UI served at ``/ui``
 """
 
 from __future__ import annotations
@@ -14,20 +15,28 @@ from __future__ import annotations
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncIterator
 
 import redis.asyncio as aioredis
 import structlog
 from fastapi import Depends, FastAPI, HTTPException, Request, Security
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.security import APIKeyHeader
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import JSONResponse, Response
 
 from aiops.api.routes import health, incidents, ingest, metrics
+from aiops.api.routes.analyze import router as analyze_router
+from aiops.api.routes.datasets import router as datasets_router
 from aiops.api.routes.incidents import InMemoryIncidentStore
 from aiops.config import get_settings
 from aiops.observability.logging import setup_logging
+
+# Path to the web/ directory (two levels up from this file → repo root / web)
+_WEB_DIR = Path(__file__).resolve().parent.parent.parent.parent / "web"
 
 logger = structlog.get_logger()
 
@@ -166,6 +175,10 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(metrics.router)
 
+    # --- Analyze endpoint (public — no auth needed for demo UI) ------------
+    app.include_router(analyze_router)
+    app.include_router(datasets_router)
+
     # --- Routes (authenticated mutating endpoints) --------------------------
     # Ingest uses the API-key dependency on all routes in its router
     app.include_router(
@@ -180,5 +193,21 @@ def create_app() -> FastAPI:
         incidents.write_router,
         dependencies=[Depends(require_api_key)],
     )
+
+    # --- Web UI -------------------------------------------------------------
+    # Serve index.html at /ui and /
+    @app.get("/ui", include_in_schema=False)
+    @app.get("/", include_in_schema=False)
+    def serve_ui() -> FileResponse:
+        """Serve the web dashboard."""
+        from fastapi.responses import FileResponse
+        ui_path = _WEB_DIR / "index.html"
+        if ui_path.exists():
+            return FileResponse(str(ui_path), media_type="text/html")
+        return FileResponse.__new__(FileResponse)  # fallback handled below
+
+    # Mount static assets (CSS, JS, images if any)
+    if _WEB_DIR.exists():
+        app.mount("/web", StaticFiles(directory=str(_WEB_DIR)), name="web")
 
     return app

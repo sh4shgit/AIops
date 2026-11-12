@@ -5,7 +5,6 @@ Reports connectivity to Redis and the configured vector store.
 
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime, timezone
 
 import structlog
@@ -23,7 +22,7 @@ router = APIRouter(tags=["health"])
 async def health_check(request: Request) -> HealthResponse:
     """Return service health including Redis and vector-store status."""
     redis_ok = await _check_redis(request)
-    vector_ok = await _check_vector_store()
+    vector_ok = _check_vector_store()
 
     status = "healthy" if (redis_ok and vector_ok) else "degraded"
 
@@ -36,30 +35,32 @@ async def health_check(request: Request) -> HealthResponse:
 
 
 async def _check_redis(request: Request) -> bool:
-    """Attempt a Redis PING with timeout."""
+    """Attempt a Redis PING — returns True on success, False on any failure."""
     try:
         redis_client = getattr(request.app.state, "redis", None)
         if redis_client is None:
             return False
-        pong = await asyncio.wait_for(redis_client.ping(), timeout=1.0)
+        pong = await redis_client.ping()
         return bool(pong)
-    except Exception:
+    except (ConnectionError, OSError):
+        logger.warning("health_redis_unreachable")
+        return False
+    except Exception:  # noqa: BLE001
         logger.warning("health_redis_unreachable", exc_info=True)
         return False
 
 
-async def _check_vector_store() -> bool:
-    """Check vector store reachability / persistence."""
+def _check_vector_store() -> bool:
+    """Check vector store reachability / persistence (synchronous)."""
     settings = get_settings()
     if settings.vector_store_backend.value != "chromadb":
         return True
     try:
         import chromadb  # noqa: PLC0415
 
-        # Check local persistent directory or heartbeat
         client = chromadb.PersistentClient(path=settings.chroma_persist_dir)
         client.heartbeat()
         return True
-    except Exception:
+    except Exception:  # noqa: BLE001
         logger.warning("health_vector_store_unreachable", exc_info=True)
         return False

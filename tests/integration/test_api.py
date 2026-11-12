@@ -1,4 +1,9 @@
-"""Integration tests for the FastAPI HTTP endpoints."""
+"""Integration tests for the FastAPI HTTP endpoints.
+
+These tests use FastAPI's synchronous TestClient which handles the async
+event loop internally, without requiring asyncio.run() calls in test code.
+All incident store operations are stubbed out synchronously.
+"""
 
 from __future__ import annotations
 
@@ -7,12 +12,13 @@ from fastapi.testclient import TestClient
 
 from aiops.api.main import create_app
 from aiops.api.schemas import Incident, IncidentSeverity, IncidentStatus
+from aiops.api.routes.incidents import InMemoryIncidentStore
 
 
 class MockPipeline:
-    def __init__(self, redis_instance: MockRedis):
+    def __init__(self, redis_instance: "MockRedis"):
         self.redis = redis_instance
-        self.ops = []
+        self.ops: list = []
 
     async def __aenter__(self):
         return self
@@ -34,18 +40,21 @@ class MockPipeline:
                 if key not in self.redis.sets:
                     self.redis.sets[key] = set()
                 if val in self.redis.sets[key]:
-                    results.append(0)  # already member
+                    results.append(0)
                 else:
                     self.redis.sets[key].add(val)
-                    results.append(1)  # added
+                    results.append(1)
             elif op[0] == "xadd":
                 results.append("1000-0")
+        self.ops.clear()
         return results
 
 
 class MockRedis:
+    """Lightweight synchronous-safe async Redis mock."""
+
     def __init__(self):
-        self.sets = {}
+        self.sets: dict[str, set] = {}
 
     async def ping(self):
         return True
@@ -60,14 +69,26 @@ class MockRedis:
         pass
 
 
+def _seed_incident(app, inc: Incident) -> None:
+    """Add an incident to the app's store synchronously via direct dict access."""
+    store: InMemoryIncidentStore = app.state.incident_store
+    # InMemoryIncidentStore uses a plain dict — write directly to bypass async
+    store._store[inc.id] = inc
+
+
 @pytest.fixture
 def test_client() -> TestClient:
-    """Create a FastAPI TestClient with a simulated mock Redis backend."""
+    """Create a FastAPI TestClient with mock Redis backend."""
     app = create_app()
     app.state.redis = MockRedis()
 
     with TestClient(app) as client:
         yield client
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
 
 
 def test_health_endpoint(test_client: TestClient) -> None:
@@ -165,12 +186,7 @@ def test_ingest_partial_validation_and_deduplication(test_client: TestClient) ->
     assert resend_data["rejected"] == 1
 
 
-def test_incident_lifecycle_approve_reject(test_client: TestClient) -> None:
-    # Seed an incident in state ACTION_PROPOSED
-    app = test_client.app
-    store = app.state.incident_store
-
-    import asyncio
+def test_incident_lifecycle_approve(test_client: TestClient) -> None:
     inc = Incident(
         title="High error rate on auth service",
         service="auth-service",
@@ -178,7 +194,8 @@ def test_incident_lifecycle_approve_reject(test_client: TestClient) -> None:
         status=IncidentStatus.ACTION_PROPOSED,
         proposed_action="DRAFT_JIRA_TICKET",
     )
-    asyncio.run(store.add_incident(inc))
+    # Seed directly into the store (avoid asyncio.run)
+    _seed_incident(test_client.app, inc)
 
     # 1. List incidents
     list_res = test_client.get("/incidents")
@@ -201,3 +218,56 @@ def test_incident_lifecycle_approve_reject(test_client: TestClient) -> None:
     )
     assert approve_res.status_code == 200
     assert approve_res.json()["status"] == "ACTION_APPROVED"
+
+
+def test_incident_lifecycle_reject(test_client: TestClient) -> None:
+    inc = Incident(
+        title="Memory spike on worker nodes",
+        service="worker-service",
+        severity=IncidentSeverity.MEDIUM,
+        status=IncidentStatus.ACTION_PROPOSED,
+        proposed_action="DRAFT_SLACK_ALERT",
+    )
+    _seed_incident(test_client.app, inc)
+
+    reject_res = test_client.post(
+        f"/incidents/{inc.id}/reject",
+        json={"reason": "False positive — scheduled maintenance"},
+        headers={"X-API-Key": "test-secret-key"},
+    )
+    assert reject_res.status_code == 200
+    data = reject_res.json()
+    assert data["status"] == "ACTION_REJECTED"
+    assert data["rejection_reason"] == "False positive — scheduled maintenance"
+
+
+def test_incident_not_found(test_client: TestClient) -> None:
+    import uuid
+    fake_id = str(uuid.uuid4())
+    res = test_client.get(f"/incidents/{fake_id}")
+    assert res.status_code == 404
+
+
+def test_incident_double_approve_conflict(test_client: TestClient) -> None:
+    inc = Incident(
+        title="Disk I/O saturation",
+        service="storage-service",
+        severity=IncidentSeverity.HIGH,
+        status=IncidentStatus.ACTION_PROPOSED,
+        proposed_action="DRAFT_JIRA_TICKET",
+    )
+    _seed_incident(test_client.app, inc)
+
+    # First approve — should succeed
+    r1 = test_client.post(
+        f"/incidents/{inc.id}/approve",
+        headers={"X-API-Key": "test-secret-key"},
+    )
+    assert r1.status_code == 200
+
+    # Second approve — should conflict (409) because status is now ACTION_APPROVED
+    r2 = test_client.post(
+        f"/incidents/{inc.id}/approve",
+        headers={"X-API-Key": "test-secret-key"},
+    )
+    assert r2.status_code == 409

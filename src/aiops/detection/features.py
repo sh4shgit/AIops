@@ -273,7 +273,7 @@ class FeatureExtractor:
 
         for entry in entries:
             template_counts[entry.template.template_id] += 1
-            if entry.severity == "ERROR" or entry.severity == "CRITICAL":
+            if entry.severity in {"ERROR", "CRITICAL", "FATAL"}:
                 error_count += 1
             elif entry.severity in {"WARN", "WARNING"}:
                 warn_count += 1
