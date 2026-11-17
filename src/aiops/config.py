@@ -18,16 +18,24 @@ try:
 except ImportError:
     from pydantic import BaseModel as _BaseModel
 
+    try:
+        from dotenv import dotenv_values
+    except ImportError:
+        dotenv_values = None
+
     class SettingsConfigDict(dict):  # type: ignore
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
 
     class BaseSettings(_BaseModel):  # type: ignore
         def __init__(self, **kwargs):
-            # Read from os.environ as fallback if pydantic-settings is not installed
+            file_values = dotenv_values(".env") if dotenv_values is not None else {}
             env_vals = {}
             for field_name, field_info in self.__class__.model_fields.items():
-                val = os.getenv(field_name.upper()) or os.getenv(field_name.lower())
+                upper_name = field_name.upper()
+                val = os.environ.get(upper_name, os.environ.get(field_name))
+                if val is None:
+                    val = file_values.get(upper_name, file_values.get(field_name))
                 if val is not None:
                     if isinstance(field_info.default, SecretStr):
                         env_vals[field_name] = SecretStr(val)
@@ -63,6 +71,8 @@ class Settings(BaseSettings):
     llm_model: str = "claude-sonnet-4-20250514"
     llm_max_tokens: int = 4096
     llm_temperature: float = 0.1
+    groq_api_key: SecretStr = SecretStr("")
+    groq_model: str = "openai/gpt-oss-20b"
 
     # --- Redis ----------------------------------------------------------------
     redis_url: str = "redis://localhost:6379/0"
@@ -76,6 +86,7 @@ class Settings(BaseSettings):
     chroma_persist_dir: str = "./data/chroma"
     chroma_collection: str = "incidents"
     pgvector_url: str = "postgresql://user:password@localhost:5432/aiops"
+    incident_corpus_path: str = ""
 
     # --- Embedding ------------------------------------------------------------
     embedding_model: str = "all-MiniLM-L6-v2"

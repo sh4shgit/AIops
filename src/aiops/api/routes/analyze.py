@@ -1,20 +1,38 @@
 """``POST /analyze`` — synchronous end-to-end analysis endpoint for the UI.
 
-Accepts log entries and returns template and severity-based analysis for the
-dashboard. This path does not call the LLM or historical incident retrieval.
+Accepts log entries and returns severity signals, incident matches, and
+rule-based investigation steps for the dashboard.
 """
 
 from __future__ import annotations
 
-import re
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from secrets import compare_digest
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
-from fastapi import APIRouter, HTTPException
+import httpx
+import structlog
+from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
+
+from aiops.config import get_settings
+from aiops.detection.parser import LogParser, ParsedTemplate
+from aiops.detection.thresholds import AnomalyBand, classify_anomaly
+from aiops.reasoning.groq import GroqError, GroundedRecommendation, generate_recommendation
+from aiops.reasoning.guidance import InvestigationGuidance, explain_checks
+from aiops.retrieval.historical import IncidentMatch, IncidentSearch, load_incidents
+
+if TYPE_CHECKING:
+    from aiops.detection.features import FeatureExtractor, FeatureWindow
+
+IncidentLookup = Literal["examples", "configured", "authentication_required", "unavailable"]
 
 router = APIRouter(tags=["analyze"])
+logger = structlog.get_logger()
+ERROR_WEIGHT = 0.5
+WARNING_WEIGHT = 0.2
 
 
 # ---------------------------------------------------------------------------
@@ -63,6 +81,17 @@ class DetectionResult(BaseModel):
     anomaly_score: float
     band: str  # HIGH | LOW | NORMAL
     top_templates: list[str]
+    evidence_lines: list[int] = Field(default_factory=list, description="1-based input log indices")
+    historical_incidents: list[IncidentMatch] = Field(default_factory=list)
+    suggested_checks: list[str] = Field(default_factory=list)
+    investigation_guidance: list[InvestigationGuidance] = Field(default_factory=list)
+
+
+class ScoringPolicy(BaseModel):
+    error_weight: float
+    warning_weight: float
+    high_threshold: float
+    low_threshold: float
 
 
 class ReasoningResult(BaseModel):
@@ -85,6 +114,9 @@ class AnalyzeResponse(BaseModel):
     detections: list[DetectionResult]
     reasoning: list[ReasoningResult]
     summary: dict[str, Any]
+    incident_lookup: IncidentLookup
+    scoring: ScoringPolicy
+    recommendation_available: bool
 
 
 # ---------------------------------------------------------------------------
@@ -92,12 +124,10 @@ class AnalyzeResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _parse_logs(entries: list[LogEntry]) -> tuple[list[Any], dict[str, int]]:
+def _parse_logs(entries: list[LogEntry]) -> tuple[list[tuple[LogEntry, ParsedTemplate]], dict[str, int]]:
     """Run Drain3 template miner on all entries."""
-    from aiops.detection.parser import LogParser
-
     parser = LogParser()
-    parsed: list[tuple[LogEntry, Any]] = []
+    parsed: list[tuple[LogEntry, ParsedTemplate]] = []
     template_counts: dict[str, int] = {}
 
     for entry in entries:
@@ -109,238 +139,135 @@ def _parse_logs(entries: list[LogEntry]) -> tuple[list[Any], dict[str, int]]:
 
 
 def _extract_features(
-    parsed: list[tuple[Any, Any]]
-) -> list[tuple[str, Any, Any]]:
-    """Group parsed logs by service, build FeatureWindows."""
+    parsed: list[tuple[LogEntry, ParsedTemplate]],
+) -> list[tuple[FeatureWindow, FeatureExtractor, list[int]]]:
+    """Group logs by service and block, keeping their original line numbers."""
     from aiops.detection.features import FeatureExtractor
 
-    # Group by service
-    service_groups: dict[str, list[tuple[Any, Any]]] = {}
-    for entry, tmpl in parsed:
-        svc = entry.service
-        service_groups.setdefault(svc, []).append((entry, tmpl))
+    service_groups: dict[str, list[tuple[int, LogEntry, ParsedTemplate]]] = {}
+    for number, (entry, template) in enumerate(parsed, start=1):
+        service_groups.setdefault(entry.service, []).append((number, entry, template))
 
-    all_windows: list[tuple[str, Any, FeatureExtractor]] = []
-    for svc, group in service_groups.items():
-        extractor = FeatureExtractor(service=svc)
-        ungrouped = FeatureExtractor(service=svc)
-        ungrouped_count = 0
-        for entry, tmpl in group:
+    all_windows: list[tuple[FeatureWindow, FeatureExtractor, list[int]]] = []
+    for service, group in service_groups.items():
+        extractor = FeatureExtractor(service=service)
+        ungrouped = FeatureExtractor(service=service)
+        session_lines: dict[str, list[int]] = {}
+        ungrouped_lines: list[int] = []
+        for number, entry, template in group:
             try:
                 ts = datetime.fromisoformat(entry.timestamp.replace("Z", "+00:00"))
                 if ts.tzinfo is None:
                     ts = ts.replace(tzinfo=timezone.utc)
             except ValueError:
                 ts = datetime.now(timezone.utc)
-            extractor.add_log(
-                tmpl,
+            session_id = extractor.add_log(
+                template,
                 timestamp=ts,
                 raw_message=entry.message,
                 severity=entry.level,
             )
-            if not re.search(r"blk_-?\d+", entry.message):
-                ungrouped.add_log(tmpl, timestamp=ts, raw_message=entry.message, severity=entry.level)
-                ungrouped_count += 1
-        windows = extractor.close_session_windows()
-        for w in windows:
-            all_windows.append((svc, w, extractor))
-        if ungrouped_count:
-            all_windows.append((svc, ungrouped.close_window(), ungrouped))
+            if session_id:
+                session_lines.setdefault(session_id, []).append(number)
+            else:
+                ungrouped.add_log(
+                    template, timestamp=ts, raw_message=entry.message, severity=entry.level
+                )
+                ungrouped_lines.append(number)
+        for window in extractor.close_session_windows():
+            all_windows.append((window, extractor, session_lines[window.window_id]))
+        if ungrouped_lines:
+            all_windows.append((ungrouped.close_window(), ungrouped, ungrouped_lines))
 
     return all_windows
 
 
-def _detect_anomalies(
-    windows: list[tuple[str, Any, Any]]
-) -> list[tuple[Any, float, str]]:
-    """Score severity ratios with a transparent, untrained heuristic."""
-    results: list[tuple[Any, float, str]] = []
-    from aiops.detection.thresholds import classify_anomaly
-    for svc, window, extractor in windows:
-        score = -(window.error_ratio * 0.5 + window.warning_ratio * 0.2)
-        results.append((window, score, classify_anomaly(score).value))
-    return results
+def _incident_search(api_key: str | None) -> tuple[IncidentSearch, IncidentLookup]:
+    settings = get_settings()
+    corpus_path = settings.incident_corpus_path
+    if corpus_path:
+        expected_key = settings.api_key.get_secret_value()
+        if (
+            not expected_key or expected_key == "changeme" or not api_key
+            or not compare_digest(api_key.encode(), expected_key.encode())
+        ):
+            return IncidentSearch([]), "authentication_required"
 
-
-def _run_reasoning(
-    detections: list[tuple[Any, float, str]],
-    windows: list[tuple[str, Any, Any]],
-    parsed: list[tuple[Any, Any]],
-) -> list[tuple[str, Any]]:
-    """Generate fix suggestions for HIGH/LOW anomaly windows.
-
-    Uses the LLM client's mock mode synchronously — avoids spinning up a new
-    event loop (which hangs on Windows Python 3.15 with structlog in subprocess).
-    """
-    from aiops.detection.thresholds import AnomalyEvent, AnomalyBand
-    from aiops.reasoning.llm import LLMClient
-    from aiops.reasoning.prompts import build_analysis_prompt
-
-    client = LLMClient()  # auto-activates mock mode
-
-    results: list[tuple[str, Any]] = []
-
-    for (window, score, band_str), (svc, win, extractor) in zip(detections, windows):
-        if band_str == "NORMAL":
-            continue
-
-        band = AnomalyBand(band_str)
-
-        raw_lines = [e.message for e, _ in parsed if e.service == svc]
-        raw_log_snippet = "\n".join(raw_lines[:10])
-
-        top_tpl_ids = sorted(
-            win.template_counts.keys(),
-            key=lambda tid: win.template_counts[tid],
-            reverse=True,
-        )[:3]
-
-        anomaly = AnomalyEvent(
-            window_id=win.window_id,
-            score=score,
-            band=band,
-            service=svc,
-            key_templates=top_tpl_ids,
-            raw_log=raw_log_snippet,
-        )
-
-        # Build a minimal prompt string
-        prompt = build_analysis_prompt(anomaly, [], "")
-
-        try:
-            # Call the synchronous mock directly — no event loop needed
-            suggestion = client._generate_mock_suggestion(prompt)
-            results.append((win.window_id, suggestion))
-        except Exception:
-            pass
-
-    return results
-
-
-# ---------------------------------------------------------------------------
-# Route
-# ---------------------------------------------------------------------------
+    try:
+        records = load_incidents(corpus_path)
+    except (OSError, ValueError):
+        logger.warning("incident_corpus_unavailable")
+        return IncidentSearch([]), "unavailable"
+    return IncidentSearch(records), "configured" if corpus_path else "examples"
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
-def analyze_logs(request: AnalyzeRequest) -> AnalyzeResponse:
-    """Analyze a batch with template mining and severity-based scoring."""
-    request_id = uuid.uuid4().hex
-    processed_at = datetime.now(timezone.utc).isoformat()
-
-    # Apply service override
+def analyze_logs(
+    request: AnalyzeRequest,
+    api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
+) -> AnalyzeResponse:
+    """Analyze a batch and attach local investigation guidance to flagged windows."""
     entries = request.logs
     if request.service_override:
         entries = [
-            LogEntry(
-                timestamp=e.timestamp,
-                service=request.service_override,
-                level=e.level,
-                message=e.message,
-            )
-            for e in entries
+            entry.model_copy(update={"service": request.service_override}) for entry in entries
         ]
 
-    # --- Stage 1: Parse ---
     try:
         parsed, template_counts = _parse_logs(entries)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Parsing failed: {exc}")
-
-    # Collect unique templates
-    seen_templates: dict[str, TemplateInfo] = {}
-    for _entry, tmpl in parsed:
-        tid = tmpl.template_id
-        if tid not in seen_templates:
-            seen_templates[tid] = TemplateInfo(
-                template_id=tid,
-                template=tmpl.template,
-                parameters=tmpl.parameters[:5],  # cap for display
-                count=template_counts.get(tid, 1),
-            )
-        else:
-            seen_templates[tid].count = template_counts.get(tid, 1)
-            seen_templates[tid].template = tmpl.template
-
-    # --- Stage 2: Feature Extraction ---
-    try:
         windows = _extract_features(parsed)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Feature extraction failed: {exc}")
+        logger.exception("log_analysis_failed")
+        raise HTTPException(status_code=500, detail="Could not analyze the submitted logs") from exc
 
+    seen_templates: dict[str, TemplateInfo] = {}
+    for _, template in parsed:
+        seen_templates[template.template_id] = TemplateInfo(
+            template_id=template.template_id,
+            template=template.template,
+            parameters=template.parameters[:5],
+            count=template_counts[template.template_id],
+        )
+
+    settings = get_settings()
+    incident_search, incident_lookup = _incident_search(api_key)
     feature_infos: list[FeatureInfo] = []
-    for svc, window, extractor in windows:
-        fvec = extractor.get_feature_vector(window)
-        # Template counts are the first N elements; last 4 are meta
-        n_tmpl = max(0, len(fvec) - 4)
+    detection_results: list[DetectionResult] = []
+    for window, extractor, line_numbers in windows:
         feature_infos.append(
             FeatureInfo(
                 window_id=window.window_id,
-                service=svc,
+                service=window.service,
                 n_events=window.total_count,
                 n_unique_templates=len(window.template_counts),
                 error_ratio=round(window.error_ratio, 4),
                 warn_ratio=round(window.warning_ratio, 4),
-                feature_dim=len(fvec),
+                feature_dim=len(extractor.feature_names),
             )
         )
 
-    # --- Stage 3: Anomaly Detection ---
-    try:
-        detections_raw = _detect_anomalies(windows)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Detection failed: {exc}") from exc
-
-    detection_results: list[DetectionResult] = []
-    for (svc, window, extractor), (win, score, band) in zip(windows, detections_raw):
-        top_tpl_ids = sorted(
-            win.template_counts.keys(),
-            key=lambda tid: win.template_counts[tid],
-            reverse=True,
+        score = -(window.error_ratio * ERROR_WEIGHT + window.warning_ratio * WARNING_WEIGHT)
+        band = classify_anomaly(score, settings=settings)
+        top_template_ids = sorted(
+            window.template_counts, key=window.template_counts.__getitem__, reverse=True
         )[:3]
-        # Map template IDs → template strings for display
-        top_templates = [
-            seen_templates[tid].template if tid in seen_templates else tid
-            for tid in top_tpl_ids
-        ]
+        evidence = [(number, entries[number - 1].message) for number in line_numbers]
+        triage = band != AnomalyBand.NORMAL
+        guidance = explain_checks(evidence) if triage else []
         detection_results.append(
             DetectionResult(
-                window_id=win.window_id,
-                service=svc,
+                window_id=window.window_id,
+                service=window.service,
                 anomaly_score=round(score, 4),
-                band=band,
-                top_templates=top_templates,
+                band=band.value,
+                top_templates=[seen_templates[tid].template for tid in top_template_ids],
+                evidence_lines=line_numbers,
+                historical_incidents=incident_search.find(evidence) if triage else [],
+                suggested_checks=[step for recommendation in guidance for step in recommendation.steps],
+                investigation_guidance=guidance,
             )
         )
 
-    # The dashboard does not present mock explanations as real analysis.
-    reasoning_raw = []
-
-    reasoning_results: list[ReasoningResult] = []
-    for window_id, suggestion in reasoning_raw:
-        reasoning_results.append(
-            ReasoningResult(
-                window_id=window_id,
-                summary=suggestion.summary,
-                probable_cause=suggestion.probable_cause,
-                suggested_steps=suggestion.suggested_steps,
-                confidence=suggestion.confidence,
-                risk_level=suggestion.risk_level.value
-                if hasattr(suggestion.risk_level, "value")
-                else str(suggestion.risk_level),
-                proposed_action=(
-                    suggestion.proposed_action.value
-                    if suggestion.proposed_action
-                    and hasattr(suggestion.proposed_action, "value")
-                    else str(suggestion.proposed_action)
-                    if suggestion.proposed_action
-                    else None
-                ),
-                referenced_incident_ids=suggestion.referenced_incident_ids,
-            )
-        )
-
-    # --- Summary ---
     n_high = sum(1 for d in detection_results if d.band == "HIGH")
     n_low = sum(1 for d in detection_results if d.band == "LOW")
     n_normal = sum(1 for d in detection_results if d.band == "NORMAL")
@@ -354,16 +281,73 @@ def analyze_logs(request: AnalyzeRequest) -> AnalyzeResponse:
         "normal_windows": n_normal,
         "has_critical": n_high > 0,
         "detection_method": "severity heuristic",
-        "reasoning_mode": "not enabled",
+        "reasoning_mode": "rule-based",
     }
 
     return AnalyzeResponse(
-        request_id=request_id,
-        processed_at=processed_at,
+        request_id=uuid.uuid4().hex,
+        processed_at=datetime.now(timezone.utc).isoformat(),
         n_logs_received=len(entries),
         templates=list(seen_templates.values()),
         features=feature_infos,
         detections=detection_results,
-        reasoning=reasoning_results,
+        reasoning=[],
+        incident_lookup=incident_lookup,
+        recommendation_available=bool(settings.groq_api_key.get_secret_value().strip()),
+        scoring=ScoringPolicy(
+            error_weight=ERROR_WEIGHT,
+            warning_weight=WARNING_WEIGHT,
+            high_threshold=settings.anomaly_high_threshold,
+            low_threshold=settings.anomaly_low_threshold,
+        ),
         summary=summary,
     )
+
+
+@router.post("/analyze/recommendation", response_model=GroundedRecommendation)
+async def recommend_window(
+    batch: AnalyzeRequest,
+    request: Request,
+    api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
+) -> GroundedRecommendation:
+    """Retrieve local incident evidence and request one recommendation from Groq."""
+    settings = get_settings()
+    key = settings.groq_api_key.get_secret_value().strip()
+    if not key:
+        raise HTTPException(status_code=503, detail="Set GROQ_API_KEY on the server to enable recommendations.")
+
+    # A loopback request from the dashboard can use the configured Groq key.
+    # Remote and cross-origin callers need the application's own API key.
+    origin = request.headers.get("origin")
+    is_local = request.client is not None and request.client.host in {"127.0.0.1", "::1"}
+    if not is_local or (origin and origin != str(request.base_url).rstrip("/")):
+        expected_key = settings.api_key.get_secret_value()
+        if (
+            not api_key or not expected_key or expected_key == "changeme"
+            or not compare_digest(api_key.encode(), expected_key.encode())
+        ):
+            raise HTTPException(status_code=403, detail="The server API key is required for remote recommendations.")
+
+    analysis = await run_in_threadpool(analyze_logs, batch, api_key)
+    if len(analysis.detections) != 1 or analysis.detections[0].band == AnomalyBand.NORMAL.value:
+        raise HTTPException(status_code=422, detail="Select a single flagged log window.")
+    window = analysis.detections[0]
+    if analysis.incident_lookup == "authentication_required":
+        raise HTTPException(status_code=403, detail="Enter the server API key to use the configured incident history.")
+    if analysis.incident_lookup == "unavailable":
+        raise HTTPException(status_code=503, detail="The configured incident history is unavailable.")
+    if not window.historical_incidents:
+        raise HTTPException(status_code=422, detail="No stored incident pattern matched this window. Use the investigation checks.")
+
+    try:
+        async with httpx.AsyncClient(timeout=25.0) as client:
+            return await generate_recommendation(
+                client,
+                api_key=key,
+                model=settings.groq_model,
+                band=window.band,
+                lines=[(number, batch.logs[number - 1].message) for number in window.evidence_lines],
+                matches=window.historical_incidents,
+            )
+    except GroqError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from None

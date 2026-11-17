@@ -67,7 +67,7 @@ async def require_api_key(
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Simple per-client sliding-window rate limiter for ``POST /logs``.
+    """Simple per-client sliding-window rate limiter for ingestion and model requests.
 
     Clients are identified by their originating IP address.  The window
     size is always 60 s and the maximum number of requests is read from
@@ -78,28 +78,29 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self._limit = rate_limit_per_minute
         # client_ip -> list of request timestamps within the current window
-        self._windows: dict[str, list[float]] = defaultdict(list)
+        self._windows: dict[tuple[str, str], list[float]] = defaultdict(list)
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
-        if request.method == "POST" and request.url.path == "/logs":
+        if request.method == "POST" and request.url.path in {"/logs", "/analyze/recommendation"}:
             client_ip = request.client.host if request.client else "unknown"
+            bucket = (client_ip, request.url.path)
             now = time.monotonic()
             window_start = now - 60.0
 
             # Prune old timestamps
-            timestamps = self._windows[client_ip]
-            self._windows[client_ip] = [t for t in timestamps if t > window_start]
+            timestamps = self._windows[bucket]
+            self._windows[bucket] = [t for t in timestamps if t > window_start]
 
-            if len(self._windows[client_ip]) >= self._limit:
+            if len(self._windows[bucket]) >= self._limit:
                 logger.warning("rate_limit_exceeded", client=client_ip)
                 return JSONResponse(
                     status_code=429,
                     content={"detail": "Rate limit exceeded. Try again later."},
                 )
 
-            self._windows[client_ip].append(now)
+            self._windows[bucket].append(now)
 
         return await call_next(request)
 

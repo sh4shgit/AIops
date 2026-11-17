@@ -17,6 +17,59 @@
     .results{margin-top:18px}.results .panel-head{align-items:center}.table-wrap{overflow:auto}.result-table{width:100%;border-collapse:collapse;text-align:left}.result-table th{background:#fafcf9;color:#8b9b94;font-size:10px;text-transform:uppercase;letter-spacing:.08em;padding:11px 21px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);white-space:nowrap}.result-table td{padding:13px 21px;border-bottom:1px solid #eef2ee;font-size:11px;vertical-align:top}.result-table tr:last-child td{border:0}.mono{font:11px ui-monospace,SFMono-Regular,Consolas,monospace}.truncate{max-width:560px;min-width:180px;overflow-wrap:anywhere;color:#52665f}.badge{display:inline-flex;padding:3px 7px;border-radius:5px;font-size:9px;letter-spacing:.04em;font-weight:800;background:#edf6eb;color:#4d8663}.badge.high{background:#fbece9;color:#b94d40}.badge.low{background:#fbf2df;color:#ae7c27}.empty{text-align:center;color:#9aa9a3;padding:35px;font-size:12px}.result-meta{padding:12px 21px;color:#99a8a1;font-size:11px;border-top:1px solid var(--line)}.notice{font-size:11px;color:#9aa9a3;margin-top:20px}
     @media(max-width:1050px){.sidebar{width:68px;padding:24px 15px}.layout{grid-template-columns:68px minmax(0,1fr)}.brand .brand-text,.nav-label,.nav-item span,.side-bottom{display:none}.nav-item{padding:11px;justify-content:center}.columns{grid-template-columns:1fr}.breakdown{justify-content:center}.legend{max-width:220px}}
     @media(max-width:660px){.layout{display:block}.sidebar{width:auto;padding:12px 18px;display:block}.brand .brand-text{display:block}.sidebar nav{display:none}.topbar{height:52px;padding:0 18px}.content{padding:25px 16px 45px}.title-row{align-items:start}.title-row h1{font-size:25px}.date-chip{display:none}.intro a{display:none}.metrics{grid-template-columns:repeat(2,1fr);gap:9px}.metric{padding:13px}.panel-head,.panel-body{padding-left:15px;padding-right:15px}.result-table td,.result-table th{padding-left:15px;padding-right:15px}.top-right{font-size:0}.avatar{font-size:11px}}
+    .result-controls{padding:0 21px 14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .result-controls input,.result-controls select{padding:7px 9px;border:1px solid #dfe7e2;border-radius:7px;background:white;color:var(--ink);font-size:12px;max-width:100%}
+    .history-status{margin:0 21px 14px;color:var(--muted);font-size:12px}
+    .results-pagination{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .result-actions{display:flex;gap:6px;align-items:center}
+    .analysis-guide{margin:0 0 18px}
+    .analysis-guide summary{cursor:pointer;padding:14px 21px;font-weight:700;color:var(--green)}
+    .analysis-guide summary:focus-visible{outline:2px solid var(--green);outline-offset:-4px;border-radius:10px}
+    .guide-steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;margin:0;padding:0 21px 18px;list-style:none}
+    .guide-steps strong{font-size:13px}
+    .guide-steps p{margin:4px 0 0;color:#52665f;font-size:12px}
+    .analysis-guide .guide-policy{margin:0;padding:12px 21px;border-top:1px solid var(--line);background:#fafcf9;font-size:12px}
+    .score-explanation{padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:#f4f8f3}
+    .score-explanation p{margin:0 0 6px}
+    .score-explanation p:last-child{margin-bottom:0}
+    .check-group+.check-group{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+    .check-group p,.check-group ol{margin:0 0 6px}
+    .recommendation-panel{background:#f4f8f3;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+    .recommendation-panel p:first-child{margin-top:0}
+    .recommendation-panel p:last-child{margin-bottom:0}
+    .recommendation-status{color:#52665f}
+    @media(max-width:660px){.guide-steps{grid-template-columns:1fr}}
+    dialog{width:min(680px,calc(100% - 28px));max-height:88vh;max-height:88dvh;overflow:hidden;border:1px solid var(--line);border-radius:13px;background:white;color:var(--ink);padding:0;box-shadow:0 24px 70px #12232838}
+    dialog[open]{display:flex;flex-direction:column}
+    dialog::backdrop{background:#12232888}
+    .detail-header{flex:none;background:white;border-bottom:1px solid var(--line);padding:18px 22px;display:flex;justify-content:space-between;gap:12px;align-items:start}
+    .detail-header h2{margin:0;font-size:18px;overflow-wrap:anywhere}
+    .detail-header p{margin:4px 0 0;color:var(--muted);font-size:12px}
+    .detail-close{display:grid;place-items:center;width:36px;height:36px;padding:0;border:0;border-radius:8px;background:#b8353e;color:white}
+    .detail-close::before,.detail-close::after{content:"";grid-area:1/1;width:14px;height:2px;border-radius:1px;background:currentColor}
+    .detail-close::before{transform:rotate(45deg)}
+    .detail-close::after{transform:rotate(-45deg)}
+    .detail-close:hover{background:#9e2731}
+    .detail-close:focus-visible{outline:2px solid #9e2731;outline-offset:3px}
+    .detail-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;margin:4px 5px 5px 0;padding:0 17px 17px 22px}
+    .detail-body::-webkit-scrollbar{width:10px}
+    .detail-body::-webkit-scrollbar-track{background:#f1f5f2;border-radius:999px;margin-block:6px}
+    .detail-body::-webkit-scrollbar-thumb{background:#8ba39a;border:2px solid #f1f5f2;border-radius:999px}
+    .detail-body::-webkit-scrollbar-thumb:hover{background:#607d73}
+    .detail-body::-webkit-scrollbar-button{display:none}
+    @supports not selector(::-webkit-scrollbar){.detail-body{scrollbar-width:thin;scrollbar-color:#8ba39a #f1f5f2}}
+    .detail-section{margin-top:19px}
+    .detail-section h3{font-size:14px;margin:0 0 8px}
+    .detail-section p,.detail-section li,.case-card dd,.case-card dt{font-size:12px}
+    .case-card{padding:13px 15px;border:1px solid var(--line);border-radius:8px;background:#fafcf9;margin-top:8px}
+    .case-card h4{margin:0 0 6px;font-size:13px}
+    .case-card dl{margin:8px 0 0}
+    .case-card dt{font-weight:700;margin-top:8px}
+    .case-card dd{margin:1px 0 0;white-space:pre-line;overflow-wrap:anywhere}
+    .evidence-log{background:#142329;color:#d0ded7;max-height:245px;overflow:auto;padding:10px 12px;border-radius:8px;font:11px/1.65 ui-monospace,Consolas,monospace;overflow-wrap:anywhere}
+    .evidence-log li{white-space:pre-wrap;padding:3px 0}
+    .evidence-log li:target{background:#345049}
+    @media(max-width:660px){.result-controls{padding-left:15px;padding-right:15px}.results-pagination{flex-wrap:wrap}}
   </style>
 </head>
 <body>
@@ -37,6 +90,17 @@
         <div class="metric high"><div class="metric-top">HIGH SIGNALS <span class="metric-icon">↗</span></div><div class="metric-value" id="m-high">—</div><div class="metric-note">Windows to investigate</div></div>
         <div class="metric low"><div class="metric-top">LOW SIGNALS <span class="metric-icon">◷</span></div><div class="metric-value" id="m-low">—</div><div class="metric-note">Windows to review</div></div>
       </div>
+      <details class="panel analysis-guide">
+        <summary>How analysis works</summary>
+        <ol class="guide-steps">
+          <li><strong>Group related logs</strong><p>Logs from the same service and HDFS block form a window. Lines without a block ID are grouped by service. Repeated messages become templates so you can see common patterns.</p></li>
+          <li><strong>Score each window</strong><p>Errors count more than warnings. The share of each determines the score, and lower scores indicate stronger signals. The score helps prioritize review.</p></li>
+          <li><strong>Look up past incidents</strong><p>High and low signals are checked against stored log signatures. A match shows a similar symptom and links to the input line so you can compare the evidence.</p></li>
+          <li><strong>Suggest investigation steps</strong><p>Local rules link known symptoms to checks. If no rule matches a flagged window, the dashboard suggests ways to gather more context.</p></li>
+          <li><strong>Generate a recommendation</strong><p>For a window with incident matches, you can ask Groq to interpret selected redacted evidence. The dashboard shows which retrieved sources the model cites.</p></li>
+        </ol>
+        <p class="guide-policy hidden" id="guide-policy"></p>
+      </details>
       <div class="columns">
         <section class="panel"><div class="panel-head"><div><h2>Log explorer</h2><p>Load a sample, paste log lines, or upload a file.</p></div><span class="source-pill" id="source-pill">LogHub HDFS</span></div>
           <div class="panel-body"><div class="toolbar"><button class="button secondary" id="load">Load HDFS sample</button><button class="button" id="prev" aria-label="Previous sample batch">←</button><button class="button" id="next" aria-label="Next sample batch">→</button><span class="sample-range" id="range">Loading sample…</span><span class="spacer"></span><button class="button" id="upload">↑ &nbsp; Upload file</button><input id="file" type="file" accept=".log,.txt,text/plain" class="hidden"></div>
@@ -45,12 +109,41 @@
           </div></section>
         <section class="panel"><div class="panel-head"><div><h2>Signal overview</h2><p>Severity distribution across log windows.</p></div><span class="tag">Current batch</span></div><div class="panel-body">
           <div class="breakdown"><div class="donut" id="donut" data-total="—" aria-label="Analyzed windows"></div><div class="legend"><div class="legend-row"><span><i class="key" style="background:#c95b4d"></i>High signal</span><strong id="l-high">—</strong></div><div class="legend-row"><span><i class="key" style="background:#dfb660"></i>Low signal</span><strong id="l-low">—</strong></div><div class="legend-row"><span><i class="key" style="background:#77ad8b"></i>Normal</span><strong id="l-normal">—</strong></div></div></div>
-          <div class="insight"><div class="insight-title">✳ &nbsp; How scoring works</div><p>Windows are grouped by HDFS block ID. A severity heuristic uses the share of ERROR and WARN lines. These signals are not model predictions or confirmed incidents.</p></div>
+          <div class="insight"><div class="insight-title">Why a window was flagged</div><p>Select Inspect in Window results to see its score, thresholds, and evidence.</p></div>
         </div></section>
       </div>
-      <section class="panel results"><div class="panel-head"><div><h2>Window results</h2><p>Review the strongest signals and their common templates.</p></div><span class="tag" id="result-count">Awaiting analysis</span></div>
-        <div class="table-wrap"><table class="result-table"><thead><tr><th>Window / block</th><th>Signal</th><th>Score</th><th>Common pattern</th></tr></thead><tbody id="results"><tr><td colspan="4" class="empty">Run an analysis to see results here.</td></tr></tbody></table></div><div class="result-meta" id="result-meta">Results are based on the current input only.</div>
+      <section class="panel results">
+        <div class="panel-head"><div><h2>Window results</h2><p>Open a window to see why it got its signal and what to investigate.</p></div><span class="tag" id="result-count">Awaiting analysis</span></div>
+        <div class="result-controls hidden" id="result-controls">
+          <input id="result-search" type="search" aria-label="Search windows" placeholder="Find a block or pattern">
+          <select id="signal-filter" aria-label="Filter by signal">
+            <option value="">All signals</option><option value="HIGH">High signal</option>
+            <option value="LOW">Low signal</option><option value="NORMAL">Normal</option>
+          </select>
+          <label><input type="checkbox" id="matched-only"> With incident matches</label>
+        </div>
+        <p class="history-status hidden" id="history-status" aria-live="polite"></p>
+        <form class="result-controls hidden" id="history-auth">
+          <label for="history-key">API key</label>
+          <input id="history-key" type="password" autocomplete="off" required>
+          <button class="button" type="submit">Search incident history</button>
+        </form>
+        <div class="table-wrap"><table class="result-table"><thead><tr><th>Window / block</th><th>Signal</th><th>Score</th><th>Common pattern</th><th>Details</th></tr></thead><tbody id="results"><tr><td colspan="5" class="empty">Run an analysis to see results here.</td></tr></tbody></table></div>
+        <div class="result-meta results-pagination">
+          <span id="result-meta" aria-live="polite">Results are based on the current input only.</span>
+          <div class="result-actions hidden" id="result-actions">
+            <button type="button" class="button" id="result-prev">Previous</button>
+            <button type="button" class="button" id="result-next">Next</button>
+          </div>
+        </div>
       </section>
+      <dialog id="window-details" aria-labelledby="window-heading">
+        <div class="detail-header">
+          <div><h2 id="window-heading"></h2><p id="window-subtitle"></p></div>
+          <form method="dialog"><button class="detail-close" aria-label="Close" title="Close" autofocus></button></form>
+        </div>
+        <div class="detail-body" id="window-content"></div>
+      </dialog>
       <div class="notice">LogHub HDFS sample · Research data from a real HDFS system · No automated actions are taken</div>
     </div>
   </main>
@@ -58,16 +151,30 @@
 <script>
 const $ = id => document.getElementById(id);
 let offset = 0, total = 0, sampleEntries = null, sampleText = '';
+let analysisRows = [], analyzedLines = [], analyzedEntries = [], resultPage = 0;
+let scoringPolicy = null;
+let recommendationAvailable = false;
 const limit = 200;
+const resultsPerPage = 25;
 const html = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function setError(message) { $('error').textContent = message; $('error').classList.toggle('hidden', !message); }
 function lines() { return $('logs').value.split(/\r?\n/).map(x => x.trim()).filter(Boolean); }
 function updateCount() { const n=lines().length; $('line-count').textContent = n + (n===1?' line':' lines'); }
 function clearResults() {
+  analysisRows = [];
+  analyzedLines = [];
+  analyzedEntries = [];
+  resultPage = 0;
+  scoringPolicy = null;
+  recommendationAvailable = false;
+  $('window-details').close();
+  ['result-controls', 'result-actions', 'history-status', 'history-auth', 'guide-policy'].forEach(id => {
+    $(id).classList.add('hidden');
+  });
   ['m-logs','m-templates','m-high','m-low','l-high','l-low','l-normal'].forEach(id => $(id).textContent='—');
   $('donut').dataset.total='—'; $('donut').style.background='#77ad8b';
   $('result-count').textContent='Awaiting analysis';
-  $('results').innerHTML='<tr><td colspan="4" class="empty">Run an analysis to see results here.</td></tr>';
+  $('results').innerHTML='<tr><td colspan="5" class="empty">Run an analysis to see results here.</td></tr>';
   $('result-meta').textContent='Results are based on the current input only.';
 }
 function parseLine(line) {
@@ -87,23 +194,272 @@ async function loadSample(at) {
   } catch(e) {setError(e.message);$('range').textContent='Sample unavailable';}
   finally {$('load').disabled=false;}
 }
-function render(data) {
+function render(data, input, entries) {
   const s=data.summary; $('m-logs').textContent=s.total_logs.toLocaleString(); $('m-templates').textContent=s.unique_templates.toLocaleString(); $('m-high').textContent=s.anomalies_high.toLocaleString(); $('m-low').textContent=s.anomalies_low.toLocaleString();
   $('l-high').textContent=s.anomalies_high; $('l-low').textContent=s.anomalies_low; $('l-normal').textContent=s.normal_windows; $('donut').dataset.total=s.windows_analyzed;
   const n=s.windows_analyzed||1, a=s.anomalies_high/n*100, b=(s.anomalies_high+s.anomalies_low)/n*100;
   $('donut').style.background='conic-gradient(#c95b4d 0 '+a+'%, #dfb660 '+a+'% '+b+'%, #77ad8b '+b+'% 100%)';
-  const rows=[...data.detections].sort((a,b)=>a.anomaly_score-b.anomaly_score); const shown=rows.slice(0,50);
-  $('results').innerHTML=shown.length?shown.map(d=>'<tr><td class="mono">'+html(d.window_id.replace('session-',''))+'</td><td><span class="badge '+html(d.band.toLowerCase())+'">'+html(d.band)+'</span></td><td class="mono">'+Number(d.anomaly_score).toFixed(3)+'</td><td class="truncate">'+html(d.top_templates[0]||'—')+'</td></tr>').join(''):'<tr><td colspan="4" class="empty">No windows found.</td></tr>';
-  $('result-count').textContent=s.windows_analyzed+' windows'; $('result-meta').textContent='Showing '+shown.length+' of '+rows.length+' windows, ordered by signal. Scoring: severity heuristic.';
+  analyzedLines = input;
+  analyzedEntries = entries;
+  recommendationAvailable = data.recommendation_available === true;
+  const windowKey = row => JSON.stringify([row.service, row.window_id]);
+  const features = new Map(data.features.map(row => [windowKey(row), row]));
+  analysisRows = data.detections.map(row => ({...row, features: features.get(windowKey(row))}))
+    .sort((left, right) => left.anomaly_score - right.anomaly_score);
+  scoringPolicy = data.scoring;
+  $('guide-policy').classList.toggle('hidden', !scoringPolicy);
+  if (scoringPolicy) {
+    const {error_weight, warning_weight, high_threshold, low_threshold} = scoringPolicy;
+    $('guide-policy').textContent = 'Current score = −(' + error_weight + ' × error share + '
+      + warning_weight + ' × warning share). High at ' + high_threshold + ' or lower. Low above '
+      + high_threshold + ' through ' + low_threshold + '. Normal above ' + low_threshold + '.';
+  }
+  resultPage = 0;
+  $('result-count').textContent = s.windows_analyzed + ' windows';
+  $('result-controls').classList.remove('hidden');
+  const historyMessage = {
+    examples: 'Searching the bundled example incidents.',
+    configured: 'Searching your configured incident history.',
+    authentication_required: 'Enter the server API key to search your configured incident history.',
+    unavailable: 'Incident history could not be loaded. Check the configured corpus file.',
+  };
+  $('history-status').textContent = historyMessage[data.incident_lookup] || '';
+  $('history-status').dataset.lookup = data.incident_lookup;
+  $('history-status').classList.remove('hidden');
+  $('history-auth').classList.toggle('hidden', data.incident_lookup !== 'authentication_required');
+  renderResultPage();
+}
+
+function renderResultPage() {
+  const query = $('result-search').value.trim().toLowerCase();
+  const signal = $('signal-filter').value;
+  const matchedOnly = $('matched-only').checked;
+  const indices = analysisRows.map((_, index) => index).filter(index => {
+    const row = analysisRows[index];
+    const incidentTerms = row.historical_incidents.flatMap(({incident}) => [incident.id, incident.title]);
+    const searchable = [row.window_id, row.service, ...row.top_templates, ...incidentTerms];
+    return (!signal || row.band === signal)
+      && (!matchedOnly || row.historical_incidents.length)
+      && searchable.some(value => value.toLowerCase().includes(query));
+  });
+  const start = resultPage * resultsPerPage;
+  const shown = indices.slice(start, start + resultsPerPage);
+  $('results').innerHTML = shown.map(index => {
+    const row = analysisRows[index];
+    const label = row.historical_incidents.length ? 'Inspect · ' + row.historical_incidents.length : 'Inspect';
+    return [
+      '<tr><td class="mono">' + html(row.window_id.replace('session-', '')) + '</td>',
+      '<td><span class="badge ' + html(row.band.toLowerCase()) + '">' + html(row.band) + '</span></td>',
+      '<td class="mono">' + Number(row.anomaly_score).toFixed(3) + '</td>',
+      '<td class="truncate">' + html(row.top_templates[0] || '—') + '</td>',
+      '<td><button type="button" class="button" data-window="' + index + '">' + label + '</button></td></tr>',
+    ].join('');
+  }).join('') || '<tr><td colspan="5" class="empty">No windows match your filters.</td></tr>';
+  const range = shown.length ? (start + 1) + '–' + (start + shown.length) : '0';
+  $('result-meta').textContent = 'Showing ' + range + ' of ' + indices.length + ' matching windows.';
+  $('result-actions').classList.toggle('hidden', indices.length <= resultsPerPage);
+  $('result-prev').disabled = resultPage === 0;
+  $('result-next').disabled = start + resultsPerPage >= indices.length;
+}
+
+function explainScore(row) {
+  const score = Number(row.anomaly_score).toFixed(4);
+  if (!row.features || !scoringPolicy) {
+    return '<p>Severity score ' + score + ' · ' + html(row.band) + '</p>';
+  }
+  const {n_events, error_ratio, warn_ratio} = row.features;
+  const {error_weight, warning_weight, high_threshold, low_threshold} = scoringPolicy;
+  const errors = Math.round(error_ratio * n_events);
+  const warnings = Math.round(warn_ratio * n_events);
+  const thresholdReason = {
+    HIGH: 'The score is at or below the high threshold of ' + high_threshold + '.',
+    LOW: 'The score is above ' + high_threshold + ' and at or below the low threshold of ' + low_threshold + '.',
+    NORMAL: 'The score is above the low threshold of ' + low_threshold + '.',
+  };
+  return [
+    '<div class="score-explanation"><p><strong>' + html(row.band) + ' · ' + score + '</strong> ',
+    html(thresholdReason[row.band]) + '</p>',
+    '<p>' + errors + ' error-level and ' + warnings + ' warning-level lines out of ' + n_events + '.</p>',
+    '<p><code>−(' + html(error_weight) + ' × ' + errors + '/' + n_events + ' + '
+      + html(warning_weight) + ' × ' + warnings + '/' + n_events + ') ≈ ' + score + '</code></p></div>',
+  ].join('');
+}
+
+function requestHeaders() {
+  const headers = {'Content-Type': 'application/json'};
+  if ($('history-key').value) headers['X-API-Key'] = $('history-key').value;
+  return headers;
+}
+
+function recommendationSection(row) {
+  if (row.band === 'NORMAL') return '';
+  const canGenerate = recommendationAvailable && row.historical_incidents.length > 0;
+  const description = recommendationAvailable
+    ? 'Groq receives selected, redacted lines and matched incident evidence when you request a recommendation.'
+    : 'Add GROQ_API_KEY to the server’s .env file to enable Groq recommendations.';
+  const status = recommendationAvailable && !canGenerate
+    ? 'This window needs a historical incident match before it can generate a recommendation.'
+    : '';
+  return [
+    '<section class="detail-section"><h3>AI recommendation</h3><div class="recommendation-panel">',
+    '<p>' + html(description) + '</p>',
+    canGenerate ? '<button type="button" id="generate-recommendation" class="button primary">Generate with Groq</button>' : '',
+    '<p id="recommendation-status" class="recommendation-status" role="status">' + html(status) + '</p>',
+    '<div id="recommendation-result"></div></div></section>',
+  ].join('');
+}
+
+function showRecommendation(row, container) {
+  const result = row.recommendation;
+  const sources = result.sources.map(source => {
+    const number = row.evidence_lines[source.line_number - 1];
+    const link = number ? ' · <a href="#evidence-' + number + '">Input line ' + number + '</a>' : '';
+    const label = source.cited ? ' · Cited' : '';
+    return '<li><strong>' + html(source.alias) + '</strong> ' + html(source.title)
+      + ' (' + html(source.incident_id) + ')' + label + link + '</li>';
+  }).join('');
+  const steps = result.suggested_steps.map(step => '<li>' + html(step) + '</li>').join('');
+  container.innerHTML = [
+    '<p><strong>' + html(result.summary) + '</strong></p>',
+    result.probable_cause ? '<p><strong>Possible cause</strong><br>' + html(result.probable_cause) + '</p>' : '',
+    steps ? '<p><strong>Suggested checks</strong></p><ol>' + steps + '</ol>' : '',
+    '<p><strong>Retrieved sources</strong></p><ul>' + sources + '</ul>',
+    '<p class="hint">Generated by ' + html(result.model) + ' via Groq.</p>',
+  ].join('');
+}
+
+function bindRecommendation(row) {
+  const button = $('generate-recommendation');
+  if (!button) return;
+  const status = $('recommendation-status');
+  const container = $('recommendation-result');
+  const waitForRecommendation = async () => {
+    button.disabled = true;
+    status.textContent = 'Generating a recommendation…';
+    try {
+      await row.recommendationRequest;
+      if (!container.isConnected) return;
+      showRecommendation(row, container);
+      status.textContent = '';
+      button.hidden = true;
+    } catch (error) {
+      status.textContent = error.message || 'The recommendation request failed.';
+    } finally {
+      button.disabled = false;
+    }
+  };
+  if (row.recommendation) {
+    showRecommendation(row, container);
+    button.hidden = true;
+  } else if (row.recommendationRequest) {
+    waitForRecommendation();
+  }
+  button.addEventListener('click', () => {
+    const logs = row.evidence_lines.map(number => analyzedEntries[number - 1]);
+    row.recommendationRequest = fetch('/analyze/recommendation', {
+      method: 'POST', headers: requestHeaders(), body: JSON.stringify({logs}),
+    }).then(async response => {
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(typeof result.detail === 'string' ? result.detail : 'The recommendation request failed.');
+      }
+      row.recommendation = result;
+    }).finally(() => { row.recommendationRequest = null; });
+    waitForRecommendation();
+  });
+}
+
+function inspectWindow(index) {
+  const row = analysisRows[index];
+  const historyStatus = $('history-status');
+  const historySearched = ['examples', 'configured'].includes(historyStatus.dataset.lookup);
+  $('window-heading').textContent = row.window_id.replace('session-', '');
+  $('window-subtitle').textContent = row.service + ' · ' + row.band + ' · ' + row.evidence_lines.length + ' input lines';
+  const cases = row.historical_incidents.map(({incident, line_number, matched_template}) => [
+    '<article class="case-card"><h4>' + html(incident.title) + '</h4>',
+    '<p>' + html(incident.id) + ' · <a href="#evidence-' + line_number + '">Input line ' + line_number + '</a></p>',
+    '<dl><dt>Why it matched</dt><dd>The input line matched the stored log pattern <code>' + html(matched_template) + '</code>.</dd>',
+    '<dt>Symptoms</dt><dd>' + html(incident.symptoms) + '</dd>',
+    '<dt>Recorded cause</dt><dd>' + html(incident.root_cause) + '</dd>',
+    '<dt>Recorded resolution</dt><dd>' + html(incident.resolution) + '</dd></dl></article>',
+  ].join('')).join('');
+  const checks = row.suggested_checks.map(step => '<li>' + html(step) + '</li>').join('');
+  const guidance = (row.investigation_guidance || []).map(item => [
+    '<div class="check-group">',
+    item.matched_text
+      ? '<p><a href="#evidence-' + item.line_number + '">Input line ' + item.line_number
+        + '</a> contains <code>' + html(item.matched_text) + '</code>.</p>'
+      : '',
+    '<p>' + html(item.why) + '</p>',
+    '<ol>' + item.steps.map(step => '<li>' + html(step) + '</li>').join('') + '</ol></div>',
+  ].join('')).join('');
+  const evidence = row.evidence_lines.map(number =>
+    '<li id="evidence-' + number + '">' + number + '  ' + html(analyzedLines[number - 1]) + '</li>'
+  ).join('');
+  $('window-content').innerHTML = [
+    '<section class="detail-section"><h3>Why this signal?</h3>' + explainScore(row),
+    '</section>' + recommendationSection(row),
+    '<section class="detail-section"><h3>Investigation steps</h3>',
+    guidance || (checks ? '<ol>' + checks + '</ol>' : '<p>This window scored normal, so investigation steps were skipped.</p>'),
+    '</section><section class="detail-section"><h3>Historical incident matches</h3>',
+    row.band === 'NORMAL' ? '<p>Incident history is searched for high and low signals.</p>'
+                          : '<p>' + html(historyStatus.textContent) + '</p>',
+    cases ? '<p>Use these similar symptoms to guide your investigation and verify the cause with current evidence.</p>' + cases
+          : (row.band !== 'NORMAL' && historySearched ? '<p>No stored log patterns matched this window.</p>' : ''),
+    '</section><section class="detail-section"><h3>Log evidence</h3>',
+    '<ul class="evidence-log">' + evidence + '</ul></section>',
+  ].join('');
+  bindRecommendation(row);
+  $('window-details').showModal();
+  $('window-content').scrollTop = 0;
 }
 $('logs').addEventListener('input',()=>{updateCount();clearResults();$('source-pill').textContent=$('logs').value===sampleText?'LogHub HDFS':'Custom input';});
 $('load').addEventListener('click',()=>loadSample(0)); $('prev').addEventListener('click',()=>loadSample(Math.max(0,offset-limit))); $('next').addEventListener('click',()=>loadSample(offset+limit));
 $('upload').addEventListener('click',()=>$('file').click());
 $('file').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;if(file.size>2*1024*1024){setError('Please choose a file smaller than 2 MB.');return;}try{$('logs').value=await file.text();$('source-pill').textContent='Uploaded file';updateCount();clearResults();setError('');}catch{setError('Could not read this file.');}e.target.value='';});
-$('analyze').addEventListener('click',async()=>{setError('');const input=lines();if(!input.length){setError('Add at least one log line to analyze.');return}if(input.length>500){setError('Please limit the batch to 500 non-empty lines.');return}
-  const button=$('analyze'), submitted=$('logs').value;button.disabled=true;button.textContent='Analyzing…';
-  try{const logs=submitted===sampleText&&sampleEntries?sampleEntries:input.map(parseLine);const response=await fetch('/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({logs})});if(!response.ok){let info;try{info=await response.json()}catch{}throw new Error(typeof info?.detail==='string'?info.detail:'Analysis failed (HTTP '+response.status+').')}const result=await response.json();if($('logs').value===submitted)render(result);}
-  catch(e){setError(e.message||'Could not reach the analysis service.');}finally{button.disabled=false;button.textContent='Analyze logs  →';}
+async function analyze() {
+  const button = $('analyze');
+  if (button.disabled) return;
+  setError('');
+  const input = lines();
+  if (input.length < 1 || input.length > 500) {
+    setError('Enter between 1 and 500 non-empty log lines.');
+    return;
+  }
+  const submitted = $('logs').value;
+  const logs = submitted === sampleText && sampleEntries ? sampleEntries : input.map(parseLine);
+  button.disabled = true;
+  button.textContent = 'Analyzing…';
+  try {
+    const response = await fetch('/analyze', {method: 'POST', headers: requestHeaders(), body: JSON.stringify({logs})});
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(typeof result.detail === 'string' ? result.detail : 'Analysis failed (HTTP ' + response.status + ').');
+    }
+    if ($('logs').value === submitted) render(result, input, logs);
+  } catch (error) {
+    setError(error.message || 'Could not reach the analysis service.');
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Analyze logs →';
+  }
+}
+$('analyze').addEventListener('click', analyze);
+$('history-auth').addEventListener('submit', event => {
+  event.preventDefault();
+  analyze();
+});
+['result-search', 'signal-filter', 'matched-only'].forEach(id => {
+  $(id).addEventListener('input', () => {
+    resultPage = 0;
+    renderResultPage();
+  });
+});
+$('result-prev').addEventListener('click', () => { resultPage--; renderResultPage(); });
+$('result-next').addEventListener('click', () => { resultPage++; renderResultPage(); });
+$('results').addEventListener('click', event => {
+  const trigger = event.target.closest('button[data-window]');
+  if (trigger) inspectWindow(Number(trigger.dataset.window));
 });
 loadSample(0);
 </script>

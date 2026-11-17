@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from aiops.reasoning.prompts import build_analysis_prompt
 from aiops.reasoning.scrubber import Scrubber
+from aiops.retrieval.store import RetrievalResult
 
 
 def test_scrub_ip_addresses() -> None:
@@ -52,3 +54,18 @@ def test_scrub_dict_recursive() -> None:
     assert scrubbed["nested"]["client_ip"] == "[IP_REDACTED]"
     assert scrubbed["nested"]["contact"] == "[EMAIL_REDACTED]"
     assert scrubbed["count"] == 42
+
+
+def test_prompt_redacts_logs_incident_content_and_additional_context(sample_anomaly_event):
+    sample_anomaly_event.raw_log = "Connection failed from 192.168.1.105"
+    precedent = RetrievalResult(
+        incident_id="INC-1001",
+        chunk_type="symptoms",
+        similarity_score=0.9,
+        metadata={"title": "Reported by operator@example.com"},
+        content="Authorization: Bearer example-secret-token",
+    )
+    prompt = build_analysis_prompt(sample_anomaly_event, [precedent], "Peer at 172.16.0.45")
+    assert "INC-1001" in prompt
+    for secret in ("192.168.1.105", "operator@example.com", "example-secret-token", "172.16.0.45"):
+        assert secret not in prompt

@@ -13,7 +13,7 @@ from enum import Enum
 import structlog
 from pydantic import BaseModel, Field
 
-from aiops.config import get_settings
+from aiops.config import Settings, get_settings
 
 logger = structlog.get_logger()
 
@@ -42,7 +42,7 @@ class AnomalyBand(str, Enum):
 # ---------------------------------------------------------------------------
 
 
-def classify_anomaly(score: float) -> AnomalyBand:
+def classify_anomaly(score: float, *, settings: Settings | None = None) -> AnomalyBand:
     """Map an Isolation Forest *score* to an ``AnomalyBand``.
 
     Isolation Forest ``decision_function`` returns **negative** values for
@@ -60,11 +60,12 @@ def classify_anomaly(score: float) -> AnomalyBand:
 
     Args:
         score: Raw decision-function value (typically in [-0.5, 0.5]).
+        settings: Optional settings snapshot shared with the caller.
 
     Returns:
         The matching ``AnomalyBand``.
     """
-    settings = get_settings()
+    settings = settings if settings is not None else get_settings()
     high_threshold: float = settings.anomaly_high_threshold
     low_threshold: float = settings.anomaly_low_threshold
 

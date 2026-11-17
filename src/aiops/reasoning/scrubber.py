@@ -33,13 +33,20 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
     ),
     # Bearer tokens in Authorization headers
     (
-        re.compile(r"[Bb]earer\s+[A-Za-z0-9\-._~+/]+=*", re.ASCII),
+        re.compile(r"bearer\s+[A-Za-z0-9\-._~+/]+=*", re.ASCII | re.IGNORECASE),
         "[BEARER_TOKEN_REDACTED]",
     ),
     # OpenAI / Anthropic / Slack / generic API keys
     (
-        re.compile(r"sk-[A-Za-z0-9_-]{10,}"),
+        re.compile(r"(?:sk-|gsk_)[A-Za-z0-9_-]{10,}"),
         "[API_KEY_REDACTED]",
+    ),
+    (
+        re.compile(
+            r"""\b(?:password|passwd|api[_-]?key|access[_-]?token|secret)\b["']?\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)""",
+            re.IGNORECASE,
+        ),
+        "[CREDENTIAL_REDACTED]",
     ),
     (
         re.compile(r"xox[bpa]-[A-Za-z0-9_-]{8,}"),

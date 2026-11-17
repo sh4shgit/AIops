@@ -12,6 +12,7 @@ assistant that:
 from __future__ import annotations
 
 from aiops.detection.thresholds import AnomalyEvent
+from aiops.reasoning.scrubber import Scrubber
 from aiops.retrieval.store import RetrievalResult
 
 # ---------------------------------------------------------------------------
@@ -112,4 +113,6 @@ def build_analysis_prompt(
         "include markdown fences or any text outside the JSON.\n"
     )
 
-    return "\n".join([anomaly_section, incidents_section, context_section, instructions])
+    return Scrubber().scrub(
+        "\n".join([anomaly_section, incidents_section, context_section, instructions])
+    )

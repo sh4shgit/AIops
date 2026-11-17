@@ -121,13 +121,14 @@ class FeatureExtractor:
         timestamp: datetime | None = None,
         raw_message: str = "",
         severity: str = "INFO",
-    ) -> None:
+    ) -> str | None:
         """Add a parsed log entry to the current time window.
 
         If *timestamp* is ``None``, the current UTC time is used.
 
         The method also checks the raw message for HDFS block IDs and, when
-        found, adds the entry to the corresponding session window as well.
+        found, adds the entry to the corresponding session window and returns
+        its ID.
         """
         ts = timestamp or datetime.now(tz=timezone.utc)
 
@@ -152,6 +153,7 @@ class FeatureExtractor:
         # Register template id if unseen.
         if parsed_log.template_id not in self._known_templates:
             self._known_templates.append(parsed_log.template_id)
+        return f"session-{block_match.group()}" if block_match else None
 
     def close_window(self) -> FeatureWindow:
         """Finalise the current time window and return its ``FeatureWindow``.

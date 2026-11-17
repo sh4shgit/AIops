@@ -91,10 +91,34 @@ loads batches from the bundled [LogHub HDFS 2k sample](data/samples/README.md),
 or accepts pasted and uploaded logs. `GET /datasets/hdfs` serves the sample in
 bounded batches. It is historical research data, not a live HDFS connection.
 
-The dashboard groups logs by block ID and applies a severity-ratio heuristic;
-its scores are not trained model predictions or ground-truth incident labels.
-This interface does not invoke Claude, retrieve incidents, or execute actions.
-Redis and ChromaDB are not needed for this dashboard analysis path.
+The dashboard groups logs by block ID and scores the share of warnings and
+errors. Open a flagged window to see its evidence lines, suggested investigation
+steps, and local incident matches. The bundled incident records are illustrative
+examples. A match shows which log signature matched and where it appeared in the
+input. Use the current log evidence to verify any possible cause.
+
+To use your own resolved incidents, set `INCIDENT_CORPUS_PATH` to a local JSON
+file containing an array of records with `id`, `title`, `symptoms`,
+`log_templates`, `root_cause`, and `resolution`. Include specific log
+signatures in `log_templates`; use `<*>` for variable text. Records with
+`status: "superseded"` are excluded. Use `python scripts/build_incident_corpus.py`
+to generate a sample export at `data/incidents/corpus.json`. Set a non-default
+`API_KEY` on the server and enter it in the dashboard when prompted.
+`POST /analyze` clients can pass the same key as `X-API-Key`.
+Keep private exports outside the repository.
+
+The dashboard can generate a recommendation from matched incident records
+using Groq. Create an API key in the [Groq console](https://console.groq.com/keys),
+put `GROQ_API_KEY=your-key` in the project's local `.env` file, and restart
+`python run_server.py`. The default model is `openai/gpt-oss-20b`. Analyze the
+sample, inspect a flagged window with an incident match, and click
+**Generate with Groq**. The server sends selected redacted evidence, checks the
+response structure and citations, and links sources back to the input lines.
+The key stays on the server. When running on another interface, the
+recommendation API requires a non-default server `API_KEY` in `X-API-Key`.
+
+The dashboard also provides local investigation checks and incident matches
+without provider credentials, Redis, or ChromaDB.
 
 ### 1. Clone & Configure
 ```bash
